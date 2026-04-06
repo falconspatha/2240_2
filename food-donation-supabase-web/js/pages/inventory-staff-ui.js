@@ -5,6 +5,7 @@ import {
   listProductOptionsWithTotals,
 } from "../services/api/allocationDashboard.js";
 import { exportCSV, showToast } from "../ui/components.js";
+import { parseNumber } from "../ui/forms.js";
 
 let state = {
   productId: "",
@@ -174,7 +175,12 @@ function bindDynamic(container) {
   container.querySelectorAll("[data-alloc-line]").forEach((btn) =>
     btn.addEventListener("click", async () => {
       try {
-        await allocateOrderLineFEFO(btn.dataset.allocLine);
+        const orderLineId = parseNumber(btn.dataset.allocLine);
+        if (!orderLineId) {
+          showToast("Missing OrderLineID for allocation.", "error");
+          return;
+        }
+        await allocateOrderLineFEFO(orderLineId);
         showToast("Allocated with FEFO.");
         await loadMain(container);
         if (state.detail?.inventory?.InventoryID) {

@@ -89,17 +89,22 @@ export async function updateOrderLine(id, patch) {
 }
 
 export async function allocateOrderLineFEFO(orderLineId) {
+  const targetOrderLineId = parseNumber(orderLineId);
+  if (!targetOrderLineId) {
+    throw new Error("Invalid OrderLineID for FEFO allocation.");
+  }
+
   const { data: orderLine, error: lineError } = await supabase
     .from("tblOrderLine")
     .select("OrderLineID, ProductID, QtyUnits")
-    .eq("OrderLineID", orderLineId)
+    .eq("OrderLineID", targetOrderLineId)
     .single();
   if (lineError) throw lineError;
 
   const { data: existingAllocs, error: allocError } = await supabase
     .from("tblPickAllocation")
     .select("AllocationID")
-    .eq("OrderLineID", orderLineId)
+    .eq("OrderLineID", targetOrderLineId)
     .limit(1);
   if (allocError) throw allocError;
   if (existingAllocs?.length) return { skipped: true, reason: "already_allocated" };

@@ -5,6 +5,7 @@ import { listZones } from "../services/api/zones.js";
 import { bindSortSelect, renderSortSelect, showToast, skeletonRows } from "../ui/components.js";
 import { formDataToObject, parseNumber, required, validateLotDates } from "../ui/forms.js";
 import { store } from "../store.js";
+const today = () => new Date().toISOString().slice(0, 10);
 
 const SORT_OPTIONS = [
   { label: "Received (newest)", sort: "ReceivedDate",  sortDir: "desc" },
@@ -121,7 +122,8 @@ export async function render(container) {
         <label>Product<select name="ProductID" required><option value="" disabled selected hidden>-- Select --</option>${products.map((p) => `<option value="${p.ProductID}">${p.ProductName}</option>`).join("")}</select></label>
         <label>Quantity Units<input name="QuantityUnits" type="number" min="0" step="1" required></label>
         <label>Unit Weight kg<input name="UnitWeightKg" id="unitWeightDisplay" readonly style="background:var(--bg);color:var(--text-muted);cursor:default" placeholder="Auto-filled from product"></label>
-        <label>Received Date<input name="ReceivedDate" type="date" required></label>
+        <input type="hidden" name="ReceivedDate" value="${today()}">
+        <label>Received Date<input value="${today()}" readonly style="background:var(--bg);color:var(--text-muted);cursor:default"></label>
         <label>Expiry Date<input name="ExpiryDate" type="date" required></label>
         <label>Temp Requirement
           <input name="TempRequirement" id="tempReqDisplay" readonly style="background:var(--bg);color:var(--text-muted);cursor:default" placeholder="Auto-filled from product">
@@ -136,7 +138,7 @@ export async function render(container) {
       const payload = formDataToObject(e.currentTarget);
       if (!required(payload.DonorID) || !required(payload.ProductID)) return showToast("Donor and product required", "error");
       if (!payload.TempRequirement) return showToast("Please select a product first", "error");
-      if (!validateLotDates(payload.ReceivedDate, payload.ExpiryDate)) return showToast("Expiry must be after received date", "error");
+      if (!validateLotDates(today(), payload.ExpiryDate)) return showToast("Expiry must be after received date", "error");
       await receiveLot(payload);
       m.innerHTML = "";
       showToast("Lot received");

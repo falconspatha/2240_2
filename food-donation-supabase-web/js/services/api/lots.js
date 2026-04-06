@@ -25,7 +25,13 @@ export async function listLots({ search = "", filters = {}, sort = "ReceivedDate
 }
 
 export async function receiveLot(payload) {
-  const { data, error } = await supabase.from("tblDonationLot").insert(payload).select().single();
+  const today = new Date().toISOString().slice(0, 10);
+  const insertPayload = {
+    ...payload,
+    ReceivedDate: today,
+    Status: payload?.Status || "Received",
+  };
+  const { data, error } = await supabase.from("tblDonationLot").insert(insertPayload).select().single();
   if (error) throw error;
   return data;
 }

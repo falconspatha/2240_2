@@ -4,6 +4,7 @@ import { formDataToObject, parseNumber, required, validateLotDates } from "../ui
 import { showToast } from "../ui/components.js";
 
 const SELF_DONOR_KEY = "fdms_self_donor_id";
+const today = () => new Date().toISOString().slice(0, 10);
 
 export async function render(container) {
   let products = [];
@@ -37,10 +38,10 @@ export async function render(container) {
         </label>
         <label>Quantity Units<input name="QuantityUnits" type="number" min="1" step="1" required></label>
         <label>Unit Weight kg<input name="UnitWeightKg" type="number" min="0.01" step="0.01" required></label>
-        <label>Received Date<input name="ReceivedDate" type="date" required></label>
+        <input type="hidden" name="ReceivedDate" value="${today()}">
+        <input type="hidden" name="Status" value="Received">
         <label>Expiry Date<input name="ExpiryDate" type="date" required></label>
         <label>Temp Requirement<input name="TempRequirement" placeholder="Ambient / Chilled / Frozen"></label>
-        <label>Status<input name="Status" value="Received"></label>
         <label style="grid-column:1/-1">Notes<input name="Notes"></label>
         <div style="grid-column:1/-1;display:flex;justify-content:flex-end">
           <button class="btn btn-primary">Submit Donation Lot</button>
@@ -60,7 +61,7 @@ export async function render(container) {
       showToast("Donor ID and Product are required.", "error");
       return;
     }
-    if (!validateLotDates(payload.ReceivedDate, payload.ExpiryDate)) {
+    if (!validateLotDates(today(), payload.ExpiryDate)) {
       showToast("Expiry date must be after received date.", "error");
       return;
     }

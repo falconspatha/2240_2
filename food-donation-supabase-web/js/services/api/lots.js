@@ -26,8 +26,19 @@ export async function listLots({ search = "", filters = {}, sort = "ReceivedDate
 
 export async function receiveLot(payload) {
   const today = new Date().toISOString().slice(0, 10);
+  const donorId = parseNumber(payload?.DonorID);
+  const productId = parseNumber(payload?.ProductID);
+  const qtyUnits = parseNumber(payload?.QuantityUnits);
+  const unitWeightKg = parseNumber(payload?.UnitWeightKg);
+  const lotCode = `LOT-${today.replaceAll("-", "")}-${donorId || 0}-${productId || 0}-${Date.now().toString().slice(-5)}`;
   const insertPayload = {
     ...payload,
+    DonorID: donorId,
+    ProductID: productId,
+    QuantityUnits: qtyUnits,
+    UnitWeightKg: unitWeightKg,
+    TotalWeightKg: Number((qtyUnits * unitWeightKg).toFixed(2)),
+    LotCode: payload?.LotCode || lotCode,
     ReceivedDate: today,
     Status: payload?.Status || "Received",
   };

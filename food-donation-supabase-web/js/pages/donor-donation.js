@@ -5,6 +5,7 @@ import { showToast } from "../ui/components.js";
 
 const SELF_DONOR_KEY = "fdms_self_donor_id";
 const today = () => new Date().toISOString().slice(0, 10);
+const TEMP_OPTIONS = ["Ambient", "Chilled", "Frozen"];
 
 export async function render(container) {
   let products = [];
@@ -41,7 +42,12 @@ export async function render(container) {
         <input type="hidden" name="ReceivedDate" value="${today()}">
         <input type="hidden" name="Status" value="Received">
         <label>Expiry Date<input name="ExpiryDate" type="date" required></label>
-        <label>Temp Requirement<input name="TempRequirement" placeholder="Ambient / Chilled / Frozen"></label>
+        <label>Temp Requirement
+          <select name="TempRequirement" required>
+            <option value="" selected disabled hidden>-- Select --</option>
+            ${TEMP_OPTIONS.map((temp) => `<option value="${temp}">${temp}</option>`).join("")}
+          </select>
+        </label>
         <label style="grid-column:1/-1">Notes<input name="Notes"></label>
         <div style="grid-column:1/-1;display:flex;justify-content:flex-end">
           <button class="btn btn-primary">Submit Donation Lot</button>
@@ -52,11 +58,12 @@ export async function render(container) {
 
   container.querySelector("#donorDonationForm").addEventListener("submit", async (event) => {
     event.preventDefault();
+    const form = event.currentTarget;
     if (!donorId) {
       showToast("Donor ID is auto-generated after registration. Please register first.", "error");
       return;
     }
-    const payload = formDataToObject(event.currentTarget);
+    const payload = formDataToObject(form);
     if (!required(payload.DonorID) || !required(payload.ProductID)) {
       showToast("Donor ID and Product are required.", "error");
       return;
@@ -75,11 +82,21 @@ export async function render(container) {
         UnitWeightKg: parseNumber(payload.UnitWeightKg),
       });
       showToast("Donation lot saved.");
-      event.currentTarget.reset();
+      form.reset();
       container.querySelector("[name='DonorID']").value = donorId;
+      container.querySelector("[name='ReceivedDate']").value = today();
+      container.querySelector("[name='Status']").value = "Received";
     } catch (error) {
       showToast(error.message, "error");
     }
+  });
+
+  container.querySelector("[name='ProductID']")?.addEventListener("change", (event) => {
+    const product = products.find((p) => String(p.ProductID) === event.target.value);
+    if (!product?.TempRequirement) return;
+    const tempSelect = container.querySelector("[name='TempRequirement']");
+    const hasOption = [...tempSelect.options].some((opt) => opt.value === product.TempRequirement);
+    if (hasOption) tempSelect.value = product.TempRequirement;
   });
 }
 

@@ -6,6 +6,7 @@ import { bindSortSelect, renderSortSelect, showToast, skeletonRows } from "../ui
 import { formDataToObject, parseNumber, required, validateLotDates } from "../ui/forms.js";
 import { store } from "../store.js";
 const today = () => new Date().toISOString().slice(0, 10);
+const TEMP_OPTIONS = ["Ambient", "Chilled", "Frozen"];
 
 const SORT_OPTIONS = [
   { label: "Received (newest)", sort: "ReceivedDate",  sortDir: "desc" },
@@ -126,7 +127,10 @@ export async function render(container) {
         <label>Received Date<input value="${today()}" readonly style="background:var(--bg);color:var(--text-muted);cursor:default"></label>
         <label>Expiry Date<input name="ExpiryDate" type="date" required></label>
         <label>Temp Requirement
-          <input name="TempRequirement" id="tempReqDisplay" readonly style="background:var(--bg);color:var(--text-muted);cursor:default" placeholder="Auto-filled from product">
+          <select name="TempRequirement" id="tempReqSelect" required>
+            <option value="" selected disabled hidden>-- Select --</option>
+            ${TEMP_OPTIONS.map((temp) => `<option value="${temp}">${temp}</option>`).join("")}
+          </select>
         </label>
         <label>Status<input name="Status" value="Received"></label>
         <label style="grid-column:1/-1">Notes<input name="Notes"></label>
@@ -137,7 +141,7 @@ export async function render(container) {
       e.preventDefault();
       const payload = formDataToObject(e.currentTarget);
       if (!required(payload.DonorID) || !required(payload.ProductID)) return showToast("Donor and product required", "error");
-      if (!payload.TempRequirement) return showToast("Please select a product first", "error");
+      if (!payload.TempRequirement) return showToast("Please select temperature requirement", "error");
       if (!validateLotDates(today(), payload.ExpiryDate)) return showToast("Expiry must be after received date", "error");
       await receiveLot(payload);
       m.innerHTML = "";
@@ -147,7 +151,10 @@ export async function render(container) {
 
     m.querySelector("[name='ProductID']").addEventListener("change", (e) => {
       const product = products.find((p) => String(p.ProductID) === e.target.value);
-      m.querySelector("#tempReqDisplay").value = product?.TempRequirement || "";
+      const tempSelect = m.querySelector("#tempReqSelect");
+      if (product?.TempRequirement && [...tempSelect.options].some((opt) => opt.value === product.TempRequirement)) {
+        tempSelect.value = product.TempRequirement;
+      }
       m.querySelector("#unitWeightDisplay").value = product?.UnitWeightKg ?? "";
     });
   });

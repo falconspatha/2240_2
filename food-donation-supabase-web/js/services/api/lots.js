@@ -6,7 +6,7 @@ import { logComputedZoneUsage } from "./capacity.js";
 const SEARCH_COLUMNS = ["Status", "TempRequirement"];
 const today = () => new Date().toISOString().slice(0, 10);
 
-export async function listLots({ search = "", filters = {}, sort = "ReceivedDate", sortDir = "desc", fromDate = "", toDate = "", nearExpiryDays } = {}) {
+export async function listLots({ search = "", filters = {}, sort = "ReceivedDate", sortDir = "desc", sort2, sortDir2, fromDate = "", toDate = "", nearExpiryDays } = {}) {
   let query = supabase
     .from("tblDonationLot")
     .select(
@@ -20,7 +20,7 @@ export async function listLots({ search = "", filters = {}, sort = "ReceivedDate
     const toNear = new Date(Date.now() + nearExpiryDays * 86400000).toISOString().slice(0, 10);
     query = query.gte("ExpiryDate", from).lte("ExpiryDate", toNear);
   }
-  query = withSort(query, sort, sortDir);
+  query = withSort(query, sort, sortDir, sort2, sortDir2);
   const { data, error } = await query;
   if (error) throw error;
   return data || [];

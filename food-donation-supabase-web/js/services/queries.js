@@ -41,15 +41,19 @@ export function withFilters(query, filters) {
 }
 
 /**
- * Apply ORDER BY.
+ * Apply ORDER BY for one or two columns.
  * If column is empty/null, returns query unchanged.
  * @param {object} query - Supabase query builder
- * @param {string} column - column to sort by
+ * @param {string} column - primary column to sort by
  * @param {"asc"|"desc"} direction
+ * @param {string} [column2] - optional secondary column
+ * @param {"asc"|"desc"} [direction2]
  */
-export function withSort(query, column, direction = "desc") {
+export function withSort(query, column, direction = "desc", column2, direction2) {
   if (!column) return query;
-  return query.order(column, { ascending: direction === "asc" });
+  let q = query.order(column, { ascending: direction === "asc" });
+  if (column2) q = q.order(column2, { ascending: (direction2 ?? "asc") === "asc" });
+  return q;
 }
 
 /**

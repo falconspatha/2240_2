@@ -1,30 +1,31 @@
 import { supabase } from "../supabaseClient.js";
 import { parseNumber } from "../../ui/forms.js";
-import { withMultiSearch } from "../queries.js";
+import { paginationRange } from "../queries.js";
 import { logComputedZoneUsage } from "./capacity.js";
 
-const SEARCH_COLUMNS = ["tblStorageZone.ZoneName"];
-
-export async function listInventory({ search = "", zoneId, lotId } = {}) {
+export async function listInventory({ search = "", zoneId, lotId, page = 1, size = 10 } = {}) {
+  // fetch all for client-side search/filter, then paginate
   let query = supabase
     .from("tblInventory")
-    .select("InventoryID, LotID, ZoneID, OnHandUnits, OnHandKg, LastUpdated, tblStorageZone:ZoneID(ZoneName)")
+    .select("InventoryID, LotID, ZoneID, OnHandUnits, OnHandKg, LastUpdated, tblStorageZone:ZoneID(ZoneName, TempBand)")
     .order("LastUpdated", { ascending: false });
   if (zoneId) query = query.eq("ZoneID", zoneId);
-  if (lotId) query = query.eq("LotID", lotId);
-  // inventory search is done client-side on ZoneName since it's a joined field
+  if (lotId)  query = query.eq("LotID", lotId);
   const { data, error } = await query;
   if (error) throw error;
-  const rows = data || [];
+  let rows = data || [];
+
   if (search?.trim()) {
     const term = search.trim().toLowerCase();
-    return rows.filter((r) => {
+    rows = rows.filter((r) => {
       const zoneName = (r.tblStorageZone?.ZoneName || "").toLowerCase();
-      const lotId = String(r.LotID || "").toLowerCase();
-      return zoneName.includes(term) || lotId.includes(term);
+      return zoneName.includes(term) || String(r.LotID || "").toLowerCase().includes(term);
     });
   }
-  return rows;
+
+  const total = rows.length;
+  const { from, to } = paginationRange(page, size);
+  return { rows: rows.slice(from, to + 1), total };
 }
 
 export async function adjustInventory({ inventoryId, deltaUnits }) {

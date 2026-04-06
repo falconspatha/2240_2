@@ -14,6 +14,11 @@ const SORT_OPTIONS = [
 
 let unsubSearch;
 
+function fkErrorMessage(err) {
+  if (err?.code === "23503") return "Cannot delete: this record is referenced by existing data (e.g. orders or inventory).";
+  return err?.message || "Delete failed.";
+}
+
 function modal(content) {
   const root = document.getElementById("modalRoot");
   root.innerHTML = `<div class="modal-backdrop"><div class="modal"><button class="modal-close" aria-label="Close" onclick="this.closest('.modal-backdrop').parentElement.innerHTML=''">&times;</button>${content}</div></div>`;
@@ -115,9 +120,13 @@ export async function render(container) {
           title: "Delete beneficiary?",
           message: "This cannot be undone.",
           onConfirm: async () => {
-            await deleteBeneficiary(btn.dataset.del);
-            showToast("Deleted");
-            await load();
+            try {
+              await deleteBeneficiary(btn.dataset.del);
+              showToast("Deleted");
+              await load();
+            } catch (err) {
+              showToast(fkErrorMessage(err), "error");
+            }
           },
         }),
       ),

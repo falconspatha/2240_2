@@ -5,13 +5,13 @@ import { logComputedZoneUsage } from "./capacity.js";
 
 const SEARCH_COLUMNS = ["Status", "Priority"];
 
-export async function listOrders({ search = "", filters = {}, sort = "OrderDate", sortDir = "desc" } = {}) {
+export async function listOrders({ search = "", filters = {}, sort = "OrderDate", sortDir = "desc", sort2, sortDir2 } = {}) {
   let query = supabase
     .from("tblOrders")
     .select("OrderID, BeneficiaryID, OrderDate, Status, Priority, Notes, tblBeneficiary:BeneficiaryID(BeneficiaryName)");
   query = withMultiSearch(query, SEARCH_COLUMNS, search);
   query = withFilters(query, filters);
-  query = withSort(query, sort, sortDir);
+  query = withSort(query, sort, sortDir, sort2, sortDir2);
   const { data, error } = await query;
   if (error) throw error;
   return data || [];
@@ -48,6 +48,15 @@ export async function updateOrder(id, patch) {
   if ("Priority" in patch) payload.Priority = parseNumber(patch.Priority) || 1;
   if ("Notes" in patch) payload.Notes = patch.Notes || null;
   const { data, error } = await supabase.from("tblOrders").update(payload).eq("OrderID", id).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function cancelOrder(id) {
+  const { data: order, error: getErr } = await supabase.from("tblOrders").select("Status").eq("OrderID", id).single();
+  if (getErr) throw getErr;
+  if (order.Status !== "Pending") throw new Error("Only Pending orders can be cancelled.");
+  const { data, error } = await supabase.from("tblOrders").update({ Status: "Cancelled" }).eq("OrderID", id).select().single();
   if (error) throw error;
   return data;
 }

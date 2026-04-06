@@ -2,6 +2,7 @@ import { supabase } from "../supabaseClient.js";
 import { parseNumber } from "../../ui/forms.js";
 import { withMultiSearch, withFilters, withSort, withDateRange } from "../queries.js";
 import { logComputedZoneUsage } from "./capacity.js";
+import { getProductById } from "./products.js";
 
 const SEARCH_COLUMNS = ["Status", "TempRequirement"];
 const today = () => new Date().toISOString().slice(0, 10);
@@ -102,7 +103,15 @@ export async function receiveLot(payload) {
   const donorId = parseNumber(payload?.DonorID);
   const productId = parseNumber(payload?.ProductID);
   const qtyUnits = parseNumber(payload?.QuantityUnits);
-  const unitWeightKg = parseNumber(payload?.UnitWeightKg);
+  if (!donorId || !productId || !qtyUnits) {
+    throw new Error("Donor, product, and quantity are required.");
+  }
+  const productRow = await getProductById(productId);
+  if (!productRow) throw new Error("Product not found.");
+  const unitWeightKg = parseNumber(productRow.UnitWeightKg);
+  if (!(unitWeightKg > 0)) {
+    throw new Error("This product has no valid unit weight in the catalog. Ask an admin to set Unit Weight (kg) on the product.");
+  }
   const totalWeightKg = Number((qtyUnits * unitWeightKg).toFixed(2));
   const tempRequirement = payload?.TempRequirement;
   const autoZoneId = payload?.StoredZoneID ? parseNumber(payload.StoredZoneID) : await pickAvailableZoneId(tempRequirement, totalWeightKg);

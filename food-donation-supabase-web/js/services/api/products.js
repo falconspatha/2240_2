@@ -38,3 +38,14 @@ export async function deleteProduct(id) {
   const { error } = await supabase.from("tblProduct").delete().eq("ProductID", id);
   if (error) throw error;
 }
+
+/** Single product row — used so lot intake always uses catalog UnitWeightKg. */
+export async function getProductById(productId) {
+  const { data, error } = await supabase
+    .from("tblProduct")
+    .select("ProductID, ProductName, UnitWeightKg, TempRequirement")
+    .eq("ProductID", productId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}

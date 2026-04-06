@@ -17,7 +17,7 @@ function lineRowTemplate(products) {
         </select>
       </label>
       <label>Quantity Units<input name="QuantityUnits" type="number" min="1" step="1" required></label>
-      <label>Unit Weight kg<input name="UnitWeightKg" type="number" min="0.01" step="0.01" required></label>
+      <p class="muted" style="grid-column:1/-1;margin:0;font-size:.9rem">Unit weight (kg): <strong data-unit-kg>—</strong> <span class="muted">(from product catalog)</span></p>
       <label>Expiry Date<input name="ExpiryDate" type="date" required></label>
       <label>Temp Requirement
         <select name="TempRequirement" required>
@@ -102,12 +102,11 @@ export async function render(container) {
       .map((row) => ({
         ProductID: parseNumber(row.querySelector("[name='ProductID']")?.value),
         QuantityUnits: parseNumber(row.querySelector("[name='QuantityUnits']")?.value),
-        UnitWeightKg: parseNumber(row.querySelector("[name='UnitWeightKg']")?.value),
         ExpiryDate: row.querySelector("[name='ExpiryDate']")?.value,
         TempRequirement: row.querySelector("[name='TempRequirement']")?.value,
         Notes: row.querySelector("[name='LineNotes']")?.value || null,
       }))
-      .filter((line) => line.ProductID && line.QuantityUnits && line.UnitWeightKg && line.ExpiryDate && line.TempRequirement);
+      .filter((line) => line.ProductID && line.QuantityUnits && line.ExpiryDate && line.TempRequirement);
     if (!required(payload.DonorID) || !lines.length) return showToast("Donor and at least one valid line are required.", "error");
     if (lines.some((line) => !validateLotDates(today(), line.ExpiryDate))) return showToast("Expiry date must be after received date.", "error");
 
@@ -142,6 +141,10 @@ export async function render(container) {
     if (!productSelect) return;
     const row = productSelect.closest("[data-line-row]");
     const product = products.find((p) => String(p.ProductID) === productSelect.value);
+    const kgEl = row?.querySelector("[data-unit-kg]");
+    if (kgEl) {
+      kgEl.textContent = product?.UnitWeightKg != null ? String(product.UnitWeightKg) : "—";
+    }
     if (!product?.TempRequirement) return;
     const tempSelect = row?.querySelector("[name='TempRequirement']");
     const hasOption = [...(tempSelect?.options || [])].some((opt) => opt.value === product.TempRequirement);

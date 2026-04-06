@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { supabaseServer } from "../../../../lib/supabase/server";
 
 export async function createSelfDonor(formData: FormData) {
@@ -12,7 +13,8 @@ export async function createSelfDonor(formData: FormData) {
     Address: String(formData.get("address") || ""),
     District: String(formData.get("district") || ""),
   };
-  const { error } = await supabase.from("tblDonor").insert(payload);
+  const { data, error } = await supabase.from("tblDonor").insert(payload).select("DonorID").single();
   if (error) throw error;
   revalidatePath("/donor/register");
+  redirect(`/donor/donation?donorId=${data.DonorID}`);
 }

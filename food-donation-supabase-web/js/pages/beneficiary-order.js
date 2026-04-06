@@ -19,7 +19,7 @@ export async function render(container) {
           : `<p class="badge warn" style="margin-top:.8rem">Please complete Beneficiary Register before placing orders.</p>`
       }
       <form id="beneficiaryOrderForm" class="form-grid" style="margin-top:1rem">
-        <label>Beneficiary ID<input name="BeneficiaryID" value="${beneficiaryId || ""}" ${beneficiaryId ? "readonly" : "required"}></label>
+        <input type="hidden" name="BeneficiaryID" value="${beneficiaryId || ""}">
         <label>Priority
           <select name="Priority">
             <option value="Low">Low</option>
@@ -38,6 +38,10 @@ export async function render(container) {
 
   container.querySelector("#beneficiaryOrderForm").addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!beneficiaryId) {
+      showToast("Beneficiary ID is auto-generated after registration. Please register first.", "error");
+      return;
+    }
     const payload = formDataToObject(event.currentTarget);
     const beneficiaryIdValue = parseNumber(payload.BeneficiaryID);
     if (!beneficiaryIdValue) {
@@ -54,9 +58,7 @@ export async function render(container) {
       });
       showToast(`Order #${created.OrderID} created.`);
       event.currentTarget.reset();
-      if (beneficiaryId) {
-        container.querySelector("[name='BeneficiaryID']").value = beneficiaryId;
-      }
+      container.querySelector("[name='BeneficiaryID']").value = beneficiaryId;
     } catch (error) {
       showToast(error.message, "error");
     }

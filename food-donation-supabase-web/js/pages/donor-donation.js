@@ -28,7 +28,7 @@ export async function render(container) {
           : `<p class="badge warn" style="margin-top:.8rem">Please complete Donor Register before making donations.</p>`
       }
       <form id="donorDonationForm" class="form-grid" style="margin-top:1rem">
-        <label>Donor ID<input name="DonorID" value="${donorId || ""}" ${donorId ? "readonly" : "required"}></label>
+        <input type="hidden" name="DonorID" value="${donorId || ""}">
         <label>Product
           <select name="ProductID" required>
             <option value="" selected disabled hidden>-- Select --</option>
@@ -51,6 +51,10 @@ export async function render(container) {
 
   container.querySelector("#donorDonationForm").addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!donorId) {
+      showToast("Donor ID is auto-generated after registration. Please register first.", "error");
+      return;
+    }
     const payload = formDataToObject(event.currentTarget);
     if (!required(payload.DonorID) || !required(payload.ProductID)) {
       showToast("Donor ID and Product are required.", "error");
@@ -71,9 +75,7 @@ export async function render(container) {
       });
       showToast("Donation lot saved.");
       event.currentTarget.reset();
-      if (donorId) {
-        container.querySelector("[name='DonorID']").value = donorId;
-      }
+      container.querySelector("[name='DonorID']").value = donorId;
     } catch (error) {
       showToast(error.message, "error");
     }

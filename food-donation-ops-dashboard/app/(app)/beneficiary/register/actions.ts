@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { supabaseServer } from "../../../../lib/supabase/server";
 
 export async function createSelfBeneficiary(formData: FormData) {
@@ -16,7 +17,8 @@ export async function createSelfBeneficiary(formData: FormData) {
     Has_Cold_Storage: String(formData.get("coldStorage") || "false") === "true",
   };
 
-  const { error } = await supabase.from("tblBeneficiary").insert(payload);
+  const { data, error } = await supabase.from("tblBeneficiary").insert(payload).select("BeneficiaryID").single();
   if (error) throw error;
   revalidatePath("/beneficiary/register");
+  redirect(`/beneficiary/order?beneficiaryId=${data.BeneficiaryID}`);
 }

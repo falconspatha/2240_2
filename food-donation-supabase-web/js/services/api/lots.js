@@ -64,6 +64,37 @@ async function pickAvailableZoneId(tempRequirement, incomingKg) {
   throw new Error("No storage zone available.");
 }
 
+function lotDatePart(dateText) {
+  const date = new Date(dateText || new Date().toISOString().slice(0, 10));
+  const dd = String(date.getDate()).padStart(2, "0");
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const yy = String(date.getFullYear()).slice(-2);
+  return `${dd}${mm}${yy}`;
+}
+
+async function generateLotCode(receivedDate) {
+  const datePart = lotDatePart(receivedDate);
+  const prefix = `LOT${datePart}-`;
+  const { data, error } = await supabase
+    .from("tblDonationLot")
+    .select("LotCode")
+    .like("LotCode", `${prefix}%`)
+    .order("LotCode", { ascending: false })
+    .limit(1);
+  if (error) throw error;
+
+  let nextNumber = 1;
+  const latest = data?.[0]?.LotCode;
+  if (latest) {
+    const match = String(latest).match(/-(\d{5})$/);
+    if (match) {
+      nextNumber = Number(match[1]) + 1;
+    }
+  }
+
+  return `${prefix}${String(nextNumber).padStart(5, "0")}`;
+}
+
 export async function receiveLot(payload) {
   const today = new Date().toISOString().slice(0, 10);
   const donorId = parseNumber(payload?.DonorID);
@@ -73,7 +104,8 @@ export async function receiveLot(payload) {
   const totalWeightKg = Number((qtyUnits * unitWeightKg).toFixed(2));
   const tempRequirement = payload?.TempRequirement;
   const autoZoneId = payload?.StoredZoneID ? parseNumber(payload.StoredZoneID) : await pickAvailableZoneId(tempRequirement, totalWeightKg);
-  const lotCode = `LOT-${today.replaceAll("-", "")}-${donorId || 0}-${productId || 0}-${Date.now().toString().slice(-5)}`;
+  const receivedDate = today;
+  const lotCode = payload?.LotCode || (await generateLotCode(receivedDate));
   const insertPayload = {
     ...payload,
     DonorID: donorId,
@@ -81,8 +113,8 @@ export async function receiveLot(payload) {
     QuantityUnits: qtyUnits,
     UnitWeightKg: unitWeightKg,
     TotalWeightKg: totalWeightKg,
-    LotCode: payload?.LotCode || lotCode,
-    ReceivedDate: today,
+    LotCode: lotCode,
+    ReceivedDate: receivedDate,
     TempRequirement: tempRequirement,
     StoredZoneID: autoZoneId,
     SuggestedZoneID: String(payload?.SuggestedZoneID || autoZoneId),

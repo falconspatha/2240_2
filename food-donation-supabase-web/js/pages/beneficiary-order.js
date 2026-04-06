@@ -3,6 +3,7 @@ import { showToast } from "../ui/components.js";
 import { formDataToObject, parseNumber } from "../ui/forms.js";
 
 const SELF_BENEFICIARY_KEY = "fdms_self_beneficiary_id";
+const today = () => new Date().toISOString().slice(0, 10);
 
 export async function render(container) {
   const beneficiaryId = localStorage.getItem(SELF_BENEFICIARY_KEY);
@@ -20,6 +21,8 @@ export async function render(container) {
       }
       <form id="beneficiaryOrderForm" class="form-grid" style="margin-top:1rem">
         <input type="hidden" name="BeneficiaryID" value="${beneficiaryId || ""}">
+        <input type="hidden" name="OrderDate" value="${today()}">
+        <input type="hidden" name="Status" value="Pending">
         <label>Priority
           <select name="Priority">
             <option value="1">1</option>
@@ -27,7 +30,7 @@ export async function render(container) {
             <option value="3">3</option>
           </select>
         </label>
-        <label>Status<input name="Status" value="Pending"></label>
+        <label>Required Delivery Date<input name="RequiredDeliveryDate" type="date"></label>
         <label style="grid-column:1/-1">Notes<input name="Notes" placeholder="Preferred delivery window or constraints"></label>
         <div style="grid-column:1/-1;display:flex;justify-content:flex-end">
           <button class="btn btn-primary">Create Order</button>
@@ -52,8 +55,10 @@ export async function render(container) {
     try {
       const created = await createOrder({
         BeneficiaryID: beneficiaryIdValue,
-        Priority: payload.Priority || "2",
+        OrderDate: payload.OrderDate || today(),
+        RequiredDeliveryDate: payload.RequiredDeliveryDate || null,
         Status: payload.Status || "Pending",
+        Priority: parseNumber(payload.Priority) || 2,
         Notes: payload.Notes || null,
       });
       showToast(`Order #${created.OrderID} created.`);

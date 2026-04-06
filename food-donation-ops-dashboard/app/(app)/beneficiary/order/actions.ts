@@ -11,9 +11,11 @@ export async function createBeneficiaryOrder(formData: FormData) {
   const supabase = supabaseServer();
   const payload = {
     BeneficiaryID: beneficiaryId,
-    Priority: String(formData.get("priority") || "2"),
-    Status: "Pending",
-    Notes: String(formData.get("notes") || ""),
+    OrderDate: String(formData.get("orderDate") || new Date().toISOString().slice(0, 10)),
+    RequiredDeliveryDate: String(formData.get("requiredDeliveryDate") || "") || null,
+    Status: String(formData.get("status") || "Pending"),
+    Priority: Number(formData.get("priority") || 2),
+    Notes: String(formData.get("notes") || "") || null,
   };
   const { error } = await supabase.from("tblOrders").insert(payload);
   if (error) throw error;

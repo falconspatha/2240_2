@@ -5,6 +5,7 @@ import { canAccessRoute, getRoleHome } from "./auth/authorization.js";
 const routes = {
   login: () => import("./pages/login.js"),
   "admin-workspace": () => import("./pages/admin-workspace.js"),
+  "inventory-staff-ui": () => import("./pages/inventory-staff-ui.js"),
   dashboard: () => import("./pages/dashboard.js"),
   donors: () => import("./pages/donors.js"),
   products: () => import("./pages/products.js"),

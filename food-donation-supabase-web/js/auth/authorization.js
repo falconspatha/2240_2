@@ -1,5 +1,6 @@
 const ALL_ROUTES = [
   "admin-workspace",
+  "inventory-staff-ui",
   "dashboard",
   "donors",
   "products",
@@ -35,9 +36,9 @@ export const ROLE_ACCESS = {
     quickActions: ["donor", "order", "lot"],
   },
   "Inventory staff": {
-    home: "inventory",
-    routes: ["dashboard", "lots", "zones", "inventory", "picking", "reports"],
-    quickActions: ["lot"],
+    home: "inventory-staff-ui",
+    routes: ["inventory-staff-ui"],
+    quickActions: [],
   },
   Beneficiaries: {
     home: "beneficiary-register",

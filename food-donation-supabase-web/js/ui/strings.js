@@ -2,6 +2,7 @@ export const STRINGS = {
   appTitle: "Food Donation Management",
   routes: [
     ["admin-workspace", "Admin Workspace"],
+    ["inventory-staff-ui", "Inventory Allocation UI"],
     ["dashboard", "Dashboard"],
     ["donors", "Donors"],
     ["products", "Products"],

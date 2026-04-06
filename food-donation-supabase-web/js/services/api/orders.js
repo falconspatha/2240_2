@@ -126,7 +126,7 @@ export async function allocateOrderLineFEFO(orderLineId) {
 
   const { data: inventoryRows, error: inventoryError } = await supabase
     .from("tblInventory")
-    .select("InventoryID, LotID, OnHandUnits, OnHandKg")
+    .select("InventoryID, LotID, ZoneID, OnHandUnits, OnHandKg")
     .in("LotID", lotIds);
   if (inventoryError) throw inventoryError;
   if (!inventoryRows?.length) return;

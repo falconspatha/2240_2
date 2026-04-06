@@ -1,4 +1,5 @@
 import { supabase } from "../supabaseClient.js";
+import { parseNumber } from "../../ui/forms.js";
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -15,10 +16,12 @@ export async function logZoneUsage({ zoneId, usedKg }) {
 }
 
 export async function logComputedZoneUsage(zoneId) {
-  const { data: rows, error: sumError } = await supabase.from("tblInventory").select("OnHandKg").eq("ZoneID", zoneId);
+  const targetZoneId = parseNumber(zoneId);
+  if (!targetZoneId) return null;
+  const { data: rows, error: sumError } = await supabase.from("tblInventory").select("OnHandKg").eq("ZoneID", targetZoneId);
   if (sumError) throw sumError;
   const usedKg = Number((rows || []).reduce((sum, row) => sum + Number(row.OnHandKg || 0), 0).toFixed(2));
-  return logZoneUsage({ zoneId, usedKg });
+  return logZoneUsage({ zoneId: targetZoneId, usedKg });
 }
 
 export async function listZoneUsage(zoneId, rangeDays = 30) {

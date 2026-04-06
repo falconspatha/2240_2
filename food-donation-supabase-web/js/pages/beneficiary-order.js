@@ -22,9 +22,9 @@ export async function render(container) {
         <input type="hidden" name="BeneficiaryID" value="${beneficiaryId || ""}">
         <label>Priority
           <select name="Priority">
-            <option value="Low">Low</option>
-            <option value="Normal" selected>Normal</option>
-            <option value="High">High</option>
+            <option value="1">1</option>
+            <option value="2" selected>2</option>
+            <option value="3">3</option>
           </select>
         </label>
         <label>Status<input name="Status" value="Pending"></label>
@@ -52,7 +52,7 @@ export async function render(container) {
     try {
       const created = await createOrder({
         BeneficiaryID: beneficiaryIdValue,
-        Priority: payload.Priority || "Normal",
+        Priority: payload.Priority || "2",
         Status: payload.Status || "Pending",
         Notes: payload.Notes || null,
       });

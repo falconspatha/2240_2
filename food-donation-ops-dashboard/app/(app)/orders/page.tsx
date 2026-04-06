@@ -42,10 +42,10 @@ export default async function OrdersPage({ searchParams }: { searchParams: Searc
               </option>
             ))}
           </select>
-          <select name="priority" className="input">
-            <option value="Low">Low</option>
-            <option value="Normal">Normal</option>
-            <option value="High">High</option>
+          <select name="priority" className="input" defaultValue="2">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
           </select>
           <input name="notes" className="input" placeholder="Notes" />
           <button className="btn btn-primary">Create Order</button>

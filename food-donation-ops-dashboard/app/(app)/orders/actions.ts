@@ -7,7 +7,7 @@ export async function createOrder(formData: FormData) {
   const payload = {
     BeneficiaryID: Number(formData.get("beneficiaryId")),
     Status: "Pending",
-    Priority: formData.get("priority"),
+    Priority: String(formData.get("priority") || "2"),
     Notes: formData.get("notes"),
   };
   const { error } = await supabase.from("tblOrders").insert(payload);

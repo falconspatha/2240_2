@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS tblDonationLot (
     LotID SERIAL PRIMARY KEY,
     DonorID INT REFERENCES tblDonor(DonorID) ON DELETE SET NULL,
     ProductID INT REFERENCES tblProduct(ProductID) ON DELETE CASCADE,
+    LotCode TEXT,
     Quantity_Units INT NOT NULL,
     Unit_Weight_kg DECIMAL(10, 2),
     Expiry_Date DATE,
@@ -43,6 +44,55 @@ CREATE TABLE IF NOT EXISTS tblDonationLot (
     Status VARCHAR(50) DEFAULT 'Received',
     Notes TEXT
 );
+
+-- Keep LotCode present and auto-generated even for existing databases
+ALTER TABLE tblDonationLot
+  ADD COLUMN IF NOT EXISTS LotCode TEXT;
+
+CREATE OR REPLACE FUNCTION fn_set_lot_code()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.LotID IS NULL THEN
+    NEW.LotID := nextval(pg_get_serial_sequence('tbldonationlot', 'lotid'));
+  END IF;
+
+  IF NEW.LotCode IS NULL OR btrim(NEW.LotCode) = '' THEN
+    NEW.LotCode := 'LOT-' ||
+      to_char(COALESCE(NEW.Received_Date, CURRENT_DATE), 'YYYYMMDD') ||
+      '-' ||
+      lpad(NEW.LotID::text, 6, '0');
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_set_lot_code ON tblDonationLot;
+CREATE TRIGGER trg_set_lot_code
+BEFORE INSERT ON tblDonationLot
+FOR EACH ROW
+EXECUTE FUNCTION fn_set_lot_code();
+
+UPDATE tblDonationLot
+SET LotCode = 'LOT-' || to_char(COALESCE(Received_Date, CURRENT_DATE), 'YYYYMMDD') || '-' || lpad(LotID::text, 6, '0')
+WHERE LotCode IS NULL OR btrim(LotCode) = '';
+
+ALTER TABLE tblDonationLot
+  ALTER COLUMN LotCode SET NOT NULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'tblDonationLot_lotcode_key'
+  ) THEN
+    ALTER TABLE tblDonationLot
+      ADD CONSTRAINT "tblDonationLot_lotcode_key" UNIQUE (LotCode);
+  END IF;
+END $$;
 
 -- 5) tblInventory
 CREATE TABLE IF NOT EXISTS tblInventory (

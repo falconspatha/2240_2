@@ -21,10 +21,10 @@ export default function BeneficiaryOrderPage({
         )}
         <form className="grid gap-3 md:grid-cols-2" action={createBeneficiaryOrder}>
           <input type="hidden" name="beneficiaryId" value={beneficiaryId} />
-          <select name="priority" className="input">
-            <option value="Low">Low</option>
-            <option value="Normal">Normal</option>
-            <option value="High">High</option>
+          <select name="priority" className="input" defaultValue="2">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
           </select>
           <input name="notes" className="input md:col-span-2" placeholder="Items needed / delivery notes" />
           <button className="btn btn-primary md:col-span-2" disabled={!canSubmit}>

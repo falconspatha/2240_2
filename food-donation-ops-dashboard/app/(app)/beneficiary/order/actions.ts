@@ -11,7 +11,7 @@ export async function createBeneficiaryOrder(formData: FormData) {
   const supabase = supabaseServer();
   const payload = {
     BeneficiaryID: beneficiaryId,
-    Priority: String(formData.get("priority") || "Normal"),
+    Priority: String(formData.get("priority") || "2"),
     Status: "Pending",
     Notes: String(formData.get("notes") || ""),
   };

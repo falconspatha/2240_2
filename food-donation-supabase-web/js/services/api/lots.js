@@ -24,12 +24,55 @@ export async function listLots({ search = "", filters = {}, sort = "ReceivedDate
   return data || [];
 }
 
+async function pickAvailableZoneId(tempRequirement, incomingKg) {
+  const { data: zones, error: zoneError } = await supabase
+    .from("tblStorageZone")
+    .select("ZoneID, ZoneName, TempBand, CapacityKg");
+  if (zoneError) throw zoneError;
+
+  const { data: inventory, error: inventoryError } = await supabase
+    .from("tblInventory")
+    .select("ZoneID, OnHandKg");
+  if (inventoryError) throw inventoryError;
+
+  const normalizedTemp = String(tempRequirement || "").trim().toLowerCase();
+  const matching = (zones || []).filter((zone) => String(zone.TempBand || "").trim().toLowerCase() === normalizedTemp);
+  if (!matching.length) {
+    throw new Error(`No storage zone found for temperature: ${tempRequirement}`);
+  }
+
+  const usedByZone = new Map();
+  (inventory || []).forEach((row) => {
+    const current = usedByZone.get(row.ZoneID) || 0;
+    usedByZone.set(row.ZoneID, current + Number(row.OnHandKg || 0));
+  });
+
+  const withCapacity = matching
+    .map((zone) => {
+      const usedKg = Number(usedByZone.get(zone.ZoneID) || 0);
+      const capacityKg = Number(zone.CapacityKg || 0);
+      const freeKg = capacityKg - usedKg;
+      return { ...zone, freeKg };
+    })
+    .sort((a, b) => b.freeKg - a.freeKg);
+
+  const suitable = withCapacity.find((zone) => zone.freeKg >= Number(incomingKg || 0));
+  if (suitable) return suitable.ZoneID;
+
+  const fallback = withCapacity[0];
+  if (fallback) return fallback.ZoneID;
+  throw new Error("No storage zone available.");
+}
+
 export async function receiveLot(payload) {
   const today = new Date().toISOString().slice(0, 10);
   const donorId = parseNumber(payload?.DonorID);
   const productId = parseNumber(payload?.ProductID);
   const qtyUnits = parseNumber(payload?.QuantityUnits);
   const unitWeightKg = parseNumber(payload?.UnitWeightKg);
+  const totalWeightKg = Number((qtyUnits * unitWeightKg).toFixed(2));
+  const tempRequirement = payload?.TempRequirement;
+  const autoZoneId = payload?.StoredZoneID ? parseNumber(payload.StoredZoneID) : await pickAvailableZoneId(tempRequirement, totalWeightKg);
   const lotCode = `LOT-${today.replaceAll("-", "")}-${donorId || 0}-${productId || 0}-${Date.now().toString().slice(-5)}`;
   const insertPayload = {
     ...payload,
@@ -37,9 +80,12 @@ export async function receiveLot(payload) {
     ProductID: productId,
     QuantityUnits: qtyUnits,
     UnitWeightKg: unitWeightKg,
-    TotalWeightKg: Number((qtyUnits * unitWeightKg).toFixed(2)),
+    TotalWeightKg: totalWeightKg,
     LotCode: payload?.LotCode || lotCode,
     ReceivedDate: today,
+    TempRequirement: tempRequirement,
+    StoredZoneID: autoZoneId,
+    SuggestedZoneID: String(payload?.SuggestedZoneID || autoZoneId),
     Status: payload?.Status || "Received",
   };
   const { data, error } = await supabase.from("tblDonationLot").insert(insertPayload).select().single();

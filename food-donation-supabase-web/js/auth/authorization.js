@@ -1,4 +1,5 @@
 const ALL_ROUTES = [
+  "admin-workspace",
   "dashboard",
   "donors",
   "products",
@@ -9,12 +10,28 @@ const ALL_ROUTES = [
   "orders",
   "picking",
   "reports",
+  "beneficiary-register",
+  "beneficiary-order",
+  "donor-register",
+  "donor-donation",
 ];
 
 export const ROLE_ACCESS = {
   "Administration staff": {
-    home: "dashboard",
-    routes: ALL_ROUTES,
+    home: "admin-workspace",
+    routes: [
+      "admin-workspace",
+      "dashboard",
+      "donors",
+      "products",
+      "lots",
+      "zones",
+      "inventory",
+      "beneficiaries",
+      "orders",
+      "picking",
+      "reports",
+    ],
     quickActions: ["donor", "order", "lot"],
   },
   "Inventory staff": {
@@ -23,14 +40,24 @@ export const ROLE_ACCESS = {
     quickActions: ["lot"],
   },
   Beneficiaries: {
-    home: "orders",
-    routes: ["dashboard", "orders", "reports"],
-    quickActions: ["order"],
+    home: "beneficiary-register",
+    routes: ["beneficiary-register", "beneficiary-order"],
+    quickActions: [],
+  },
+  Beneficiary: {
+    home: "beneficiary-register",
+    routes: ["beneficiary-register", "beneficiary-order"],
+    quickActions: [],
   },
   Donors: {
-    home: "lots",
-    routes: ["dashboard", "products", "lots", "reports"],
-    quickActions: ["lot"],
+    home: "donor-register",
+    routes: ["donor-register", "donor-donation"],
+    quickActions: [],
+  },
+  Donor: {
+    home: "donor-register",
+    routes: ["donor-register", "donor-donation"],
+    quickActions: [],
   },
 };
 

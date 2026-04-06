@@ -63,3 +63,26 @@ export async function resetGeneratedPages() {
   });
   return true;
 }
+
+export async function executeAdminSql(sql: string) {
+  const admin = await requireAdmin();
+  const statement = sql.trim();
+  const allowed =
+    /^ALTER\s+TABLE\s+[A-Za-z_][A-Za-z0-9_]*\s+/i.test(statement) ||
+    /^CREATE\s+TABLE\s+[A-Za-z_][A-Za-z0-9_]*\s+/i.test(statement) ||
+    /^DROP\s+TABLE\s+[A-Za-z_][A-Za-z0-9_]*\s*;?$/i.test(statement);
+  if (!allowed) {
+    throw new Error("Only CREATE/ALTER/DROP TABLE statements are allowed.");
+  }
+
+  const service = supabaseService();
+  const { error } = await service.rpc("fn_admin_run_sql", { p_sql: statement });
+  if (error) throw error;
+
+  await service.from("tblAdminAuditLog").insert({
+    action: "admin_run_sql",
+    actor_id: admin.id,
+    details: { sql: statement },
+  });
+  return true;
+}

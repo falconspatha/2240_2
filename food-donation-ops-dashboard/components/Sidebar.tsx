@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { NAV_ITEMS } from "../lib/navigation";
+import { navForRole } from "../lib/navigation";
 import { getUser, getUserRole } from "../lib/auth";
 
 export default async function Sidebar() {
   const user = await getUser();
   const role = getUserRole(user);
 
-  const filtered = NAV_ITEMS.filter((item) => item.href !== "/admin/reset" || role === "admin");
+  const filtered = navForRole(role);
 
   return (
     <aside className="hidden min-h-screen w-64 border-r border-slate-200 bg-white p-4 lg:block">

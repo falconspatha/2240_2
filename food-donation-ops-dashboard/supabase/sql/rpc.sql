@@ -162,6 +162,26 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION fn_admin_run_sql(p_sql TEXT)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  IF auth.jwt() ->> 'role' <> 'admin' THEN
+    RAISE EXCEPTION 'forbidden';
+  END IF;
+
+  IF p_sql !~* '^ALTER\\s+TABLE\\s+[A-Za-z_][A-Za-z0-9_]*\\s+' AND
+     p_sql !~* '^CREATE\\s+TABLE\\s+[A-Za-z_][A-Za-z0-9_]*\\s+' AND
+     p_sql !~* '^DROP\\s+TABLE\\s+[A-Za-z_][A-Za-z0-9_]*\\s*;?$' THEN
+    RAISE EXCEPTION 'unsupported statement';
+  END IF;
+
+  EXECUTE p_sql;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION fn_search_inventory(
   q TEXT,
   filters JSONB,

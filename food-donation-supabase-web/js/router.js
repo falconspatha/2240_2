@@ -4,6 +4,7 @@ import { canAccessRoute, getRoleHome } from "./auth/authorization.js";
 
 const routes = {
   login: () => import("./pages/login.js"),
+  "admin-workspace": () => import("./pages/admin-workspace.js"),
   dashboard: () => import("./pages/dashboard.js"),
   donors: () => import("./pages/donors.js"),
   products: () => import("./pages/products.js"),
@@ -14,6 +15,10 @@ const routes = {
   orders: () => import("./pages/orders.js"),
   picking: () => import("./pages/picking.js"),
   reports: () => import("./pages/reports.js"),
+  "beneficiary-register": () => import("./pages/beneficiary-register.js"),
+  "beneficiary-order": () => import("./pages/beneficiary-order.js"),
+  "donor-register": () => import("./pages/donor-register.js"),
+  "donor-donation": () => import("./pages/donor-donation.js"),
 };
 
 let currentPage;

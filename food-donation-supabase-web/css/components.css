@@ -177,3 +177,11 @@ th {
   width: 0;
   transition: width 280ms ease;
 }
+
+.report-panel .report-panel-content {
+  display: block;
+}
+
+.report-panel.collapsed .report-panel-content {
+  display: none;
+}

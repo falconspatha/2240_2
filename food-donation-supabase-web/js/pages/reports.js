@@ -1,35 +1,71 @@
 import { supabase } from "../services/supabaseClient.js";
 import { exportCSV, showToast } from "../ui/components.js";
 
+const REPORT_STATE_KEY = "fdms_report_panel_state";
+
 function asDate(d) {
   return d.toISOString().slice(0, 10);
 }
 
+function loadPanelState() {
+  try {
+    const raw = localStorage.getItem(REPORT_STATE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function savePanelState(state) {
+  localStorage.setItem(REPORT_STATE_KEY, JSON.stringify(state));
+}
+
+function setPanelCollapsed(container, id, collapsed, state) {
+  const panel = container.querySelector(`[data-report-panel="${id}"]`);
+  if (!panel) return;
+  panel.classList.toggle("collapsed", collapsed);
+  panel.querySelector("[data-panel-toggle]")?.setAttribute("aria-expanded", String(!collapsed));
+  state[id] = collapsed;
+  savePanelState(state);
+}
+
 export async function render(container) {
+  const panelState = loadPanelState();
+
   container.innerHTML = `
     <div class="page-grid">
       <section class="card">
-        <div class="toolbar"><h3>1) Near-Expiry Lots (7 days)</h3><button class="btn btn-ghost" id="csv1">CSV</button></div>
-        <div id="r1"></div>
+        <div class="toolbar">
+          <h3>Reports</h3>
+          <div style="display:flex;gap:.4rem">
+            <button class="btn btn-ghost" id="expandAll">Expand all</button>
+            <button class="btn btn-ghost" id="collapseAll">Collapse all</button>
+          </div>
+        </div>
       </section>
-      <section class="card">
-        <div class="toolbar"><h3>2) Zone Utilization</h3><button class="btn btn-ghost" id="csv2">CSV</button></div>
-        <div id="r2"></div>
+      <section class="card report-panel" data-report-panel="r1">
+        <div class="toolbar"><h3>1) Near-Expiry Lots (7 days)</h3><div style="display:flex;gap:.4rem"><button class="btn btn-ghost" data-panel-toggle data-panel="r1">Minimize</button><button class="btn btn-ghost" id="csv1">CSV</button></div></div>
+        <div class="report-panel-content" id="r1"></div>
       </section>
-      <section class="card">
-        <div class="toolbar"><h3>3) Open Order Fulfillment</h3><button class="btn btn-ghost" id="csv3">CSV</button></div>
-        <div id="r3"></div>
+      <section class="card report-panel" data-report-panel="r2">
+        <div class="toolbar"><h3>2) Zone Utilization</h3><div style="display:flex;gap:.4rem"><button class="btn btn-ghost" data-panel-toggle data-panel="r2">Minimize</button><button class="btn btn-ghost" id="csv2">CSV</button></div></div>
+        <div class="report-panel-content" id="r2"></div>
       </section>
-      <section class="card">
+      <section class="card report-panel" data-report-panel="r3">
+        <div class="toolbar"><h3>3) Open Order Fulfillment</h3><div style="display:flex;gap:.4rem"><button class="btn btn-ghost" data-panel-toggle data-panel="r3">Minimize</button><button class="btn btn-ghost" id="csv3">CSV</button></div></div>
+        <div class="report-panel-content" id="r3"></div>
+      </section>
+      <section class="card report-panel" data-report-panel="r4">
         <div class="toolbar">
           <h3>4) Donor Contribution Summary</h3>
           <div style="display:flex;gap:.4rem;align-items:center">
             <input type="date" id="fromDate"><input type="date" id="toDate">
             <button class="btn btn-ghost" id="applyDate">Apply</button>
+            <button class="btn btn-ghost" data-panel-toggle data-panel="r4">Minimize</button>
             <button class="btn btn-ghost" id="csv4">CSV</button>
           </div>
         </div>
-        <div id="r4"></div>
+        <div class="report-panel-content" id="r4"></div>
       </section>
     </div>
   `;
@@ -155,6 +191,36 @@ export async function render(container) {
 
   container.querySelector("#applyDate").addEventListener("click", async () => {
     await loadDonorContribution(container.querySelector("#fromDate").value, container.querySelector("#toDate").value);
+  });
+
+  container.querySelectorAll("[data-panel-toggle]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const panelId = btn.dataset.panel;
+      const currentlyCollapsed = !!panelState[panelId];
+      setPanelCollapsed(container, panelId, !currentlyCollapsed, panelState);
+      btn.textContent = currentlyCollapsed ? "Minimize" : "Restore";
+    });
+  });
+
+  container.querySelector("#collapseAll").addEventListener("click", () => {
+    ["r1", "r2", "r3", "r4"].forEach((id) => setPanelCollapsed(container, id, true, panelState));
+    container.querySelectorAll("[data-panel-toggle]").forEach((btn) => {
+      btn.textContent = "Restore";
+    });
+  });
+
+  container.querySelector("#expandAll").addEventListener("click", () => {
+    ["r1", "r2", "r3", "r4"].forEach((id) => setPanelCollapsed(container, id, false, panelState));
+    container.querySelectorAll("[data-panel-toggle]").forEach((btn) => {
+      btn.textContent = "Minimize";
+    });
+  });
+
+  ["r1", "r2", "r3", "r4"].forEach((id) => {
+    const collapsed = !!panelState[id];
+    setPanelCollapsed(container, id, collapsed, panelState);
+    const toggle = container.querySelector(`[data-panel="${id}"]`);
+    if (toggle) toggle.textContent = collapsed ? "Restore" : "Minimize";
   });
 
   container.querySelector("#csv1").addEventListener("click", () => exportCSV("near_expiry_lots.csv", data1));

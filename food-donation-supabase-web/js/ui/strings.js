@@ -1,6 +1,7 @@
 export const STRINGS = {
   appTitle: "Food Donation Management",
   routes: [
+    ["admin-workspace", "Admin Workspace"],
     ["dashboard", "Dashboard"],
     ["donors", "Donors"],
     ["products", "Products"],
@@ -11,6 +12,10 @@ export const STRINGS = {
     ["orders", "Orders"],
     ["picking", "Picking"],
     ["reports", "Reports"],
+    ["beneficiary-register", "Beneficiary Register"],
+    ["beneficiary-order", "Beneficiary Order"],
+    ["donor-register", "Donor Register"],
+    ["donor-donation", "Make Donation"],
   ],
   errors: {
     network: "Network issue. Please try again.",

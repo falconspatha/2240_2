@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "../../../lib/supabase/browser";
+import { getRoleHome, normalizeRole } from "../../../lib/roleAccess";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -22,7 +23,13 @@ export default function LoginPage() {
       setError(error.message);
       return;
     }
-    router.push("/dashboard");
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const role = normalizeRole(
+      (user?.app_metadata?.role as string | undefined) || (user?.user_metadata?.role as string | undefined),
+    );
+    router.push(getRoleHome(role));
   };
 
   return (

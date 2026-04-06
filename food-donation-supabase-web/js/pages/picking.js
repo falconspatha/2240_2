@@ -58,24 +58,25 @@ export async function render(container) {
         const [orderLineId, inventoryId] = btn.dataset.alloc.split(":");
         const input = container.querySelector(`[data-units="${btn.dataset.alloc}"]`);
         await allocate({ orderLineId, inventoryId, allocUnits: parseNumber(input.value) });
-        showToast("Allocated");
+        showToast("Allocated with FEFO");
+        await loadOrder(orderId);
       }),
     );
 
     const { supabase } = await import("../services/supabaseClient.js");
     const { data: allocations } = await supabase
       .from("tblPickAllocation")
-      .select("AllocationID, OrderLineID, AllocUnits, Picked")
+      .select("AllocationID, OrderLineID, AllocUnits, PickedAt")
       .in("OrderLineID", lines.map((l) => l.OrderLineID));
 
     container.querySelector("#content").insertAdjacentHTML(
       "beforeend",
       `<article class="card"><h4>Current allocations</h4>
-        <table><thead><tr><th>AllocationID</th><th>OrderLineID</th><th>Units</th><th>Picked</th><th></th></tr></thead>
+        <table><thead><tr><th>AllocationID</th><th>OrderLineID</th><th>Units</th><th>Picked At</th><th></th></tr></thead>
           <tbody>${(allocations || [])
             .map(
-              (a) => `<tr><td>${a.AllocationID}</td><td>${a.OrderLineID}</td><td>${a.AllocUnits}</td><td>${a.Picked ? "Yes" : "No"}</td>
-              <td>${a.Picked ? "" : `<button class="btn btn-primary" data-pick="${a.AllocationID}">Mark Picked</button>`}</td></tr>`,
+              (a) => `<tr><td>${a.AllocationID}</td><td>${a.OrderLineID}</td><td>${a.AllocUnits}</td><td>${a.PickedAt || "-"}</td>
+              <td>${a.PickedAt ? "" : `<button class="btn btn-primary" data-pick="${a.AllocationID}">Mark Picked</button>`}</td></tr>`,
             )
             .join("")}</tbody>
         </table>
@@ -85,7 +86,7 @@ export async function render(container) {
     container.querySelectorAll("[data-pick]").forEach((btn) =>
       btn.addEventListener("click", async () => {
         await markPicked(btn.dataset.pick);
-        showToast("Marked picked and inventory decremented");
+        showToast("Marked picked");
         await loadOrder(orderId);
       }),
     );

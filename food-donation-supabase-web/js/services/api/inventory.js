@@ -1,6 +1,7 @@
 import { supabase } from "../supabaseClient.js";
 import { parseNumber } from "../../ui/forms.js";
 import { withMultiSearch } from "../queries.js";
+import { logComputedZoneUsage } from "./capacity.js";
 
 const SEARCH_COLUMNS = ["tblStorageZone.ZoneName"];
 
@@ -45,16 +46,18 @@ export async function adjustInventory({ inventoryId, deltaUnits }) {
   if (lotError) throw lotError;
 
   const nextKg = nextUnits * parseNumber(lot.UnitWeightKg);
+  const today = new Date().toISOString().slice(0, 10);
   const { data, error } = await supabase
     .from("tblInventory")
     .update({
-      OnHandUnits: nextUnits,
-      OnHandKg: nextKg,
-      LastUpdated: new Date().toISOString(),
+      OnHandUnits: String(nextUnits),
+      OnHandKg: String(Number(nextKg.toFixed(2))),
+      LastUpdated: today,
     })
     .eq("InventoryID", inventoryId)
     .select()
     .single();
   if (error) throw error;
+  await logComputedZoneUsage(data.ZoneID);
   return data;
 }

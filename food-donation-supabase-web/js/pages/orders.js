@@ -31,9 +31,10 @@ export async function render(container) {
           <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
             <select id="statusFilter" aria-label="Filter by status">
               <option value="">All Status</option>
-              <option value="Confirmed">Confirmed</option>
-              <option value="Picked">Picked</option>
-              <option value="Shipped">Shipped</option>
+              <option value="Pending">Pending</option>
+              <option value="Allocated">Allocated</option>
+              <option value="Completed">Completed</option>
+              <option value="Cancelled">Cancelled</option>
             </select>
             ${renderSortSelect(SORT_OPTIONS, queryState)}
             <button class="btn btn-primary" id="newOrder">Create Order</button>
@@ -104,6 +105,7 @@ export async function render(container) {
       <form id="orderForm" class="form-grid">
         <label>Beneficiary<select name="BeneficiaryID" required><option value="" disabled selected hidden>-- Select --</option>${beneficiaries.map((b) => `<option value="${b.BeneficiaryID}">${b.BeneficiaryName}</option>`).join("")}</select></label>
         <label>Date<input name="OrderDate" type="date" required></label>
+        <label>Required Delivery Date<input name="RequiredDeliveryDate" type="date"></label>
         <label>Priority<select name="Priority" required><option value="" disabled selected hidden>-- Select --</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>
         <label style="grid-column:1/-1">Notes<input name="Notes"></label>
         <div style="grid-column:1/-1;display:flex;justify-content:flex-end"><button class="btn btn-primary">Save</button></div>
@@ -111,7 +113,7 @@ export async function render(container) {
     `);
     m.querySelector("#orderForm").addEventListener("submit", async (e) => {
       e.preventDefault();
-      await createOrder({ ...formDataToObject(e.currentTarget), Status: "TBC" });
+      await createOrder({ ...formDataToObject(e.currentTarget), Status: "Pending" });
       m.innerHTML = "";
       showToast("Order created");
       loadOrders().catch(() => {});

@@ -30,7 +30,7 @@ export async function render(container) {
       supabase.from("tblDonationLot").select("LotID, ExpiryDate, Status"),
       supabase.from("tblInventory").select("ZoneID, OnHandKg"),
       supabase.from("tblOrders").select("OrderID, Status"),
-      supabase.from("tblPickAllocation").select("AllocationID, Picked"),
+      supabase.from("tblPickAllocation").select("AllocationID, PickedAt"),
       supabase.from("tblStorageZone").select("ZoneID, ZoneName, CapacityKg"),
     ]);
 
@@ -39,7 +39,7 @@ export async function render(container) {
       ["Active lots", (lotsRes.data || []).filter((l) => l.Status !== "Completed").length],
       ["On-hand kg", Math.round((invRes.data || []).reduce((s, i) => s + Number(i.OnHandKg || 0), 0))],
       ["Open orders", (ordersRes.data || []).filter((o) => !["Completed", "Cancelled"].includes(o.Status)).length],
-      ["Pending picks", (picksRes.data || []).filter((p) => !p.Picked).length],
+      ["Total allocations", (picksRes.data || []).length],
     ];
     document.getElementById("kpi").innerHTML = kpis
       .map(([label]) => `<article class="card card-animate"><p class="muted">${label}</p><h2 data-kpi>0</h2></article>`)

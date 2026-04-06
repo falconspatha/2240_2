@@ -14,10 +14,24 @@ export async function createBeneficiaryOrder(formData: FormData) {
     OrderDate: String(formData.get("orderDate") || new Date().toISOString().slice(0, 10)),
     RequiredDeliveryDate: String(formData.get("requiredDeliveryDate") || "") || null,
     Status: String(formData.get("status") || "Pending"),
-    Priority: Number(formData.get("priority") || 2),
+    Priority: 1,
     Notes: String(formData.get("notes") || "") || null,
   };
-  const { error } = await supabase.from("tblOrders").insert(payload);
+  const { data: createdOrder, error } = await supabase.from("tblOrders").insert(payload).select("OrderID").single();
   if (error) throw error;
+
+  const productId = Number(formData.get("productId"));
+  const qtyUnits = Number(formData.get("qtyUnits"));
+  if (!productId || !qtyUnits) {
+    throw new Error("Food product and quantity are required.");
+  }
+
+  const { error: lineError } = await supabase.from("tblOrderLine").insert({
+    OrderID: createdOrder.OrderID,
+    ProductID: productId,
+    QtyUnits: qtyUnits,
+    Notes: String(formData.get("lineNotes") || "") || null,
+  });
+  if (lineError) throw lineError;
   revalidatePath("/beneficiary/order");
 }

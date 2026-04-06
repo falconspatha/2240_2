@@ -120,19 +120,25 @@ export async function receiveLot(payload) {
   const autoZoneId = payload?.StoredZoneID ? parseNumber(payload.StoredZoneID) : await pickAvailableZoneId(tempRequirement, totalWeightKg);
   const receivedDate = receivedOn;
   const lotCode = payload?.LotCode || (await generateLotCode(receivedDate));
+  const notes = payload?.Notes || null;
+  const status = payload?.Status || "Received";
+  const suggestedZoneId = payload?.SuggestedZoneID ? String(payload.SuggestedZoneID) : String(autoZoneId);
+
+  // Only send columns that actually exist in tblDonationLot.
   const insertPayload = {
-    ...payload,
     DonorID: donorId,
     ProductID: productId,
+    LotCode: lotCode,
     QuantityUnits: qtyUnits,
     UnitWeightKg: unitWeightKg,
     TotalWeightKg: totalWeightKg,
-    LotCode: lotCode,
+    ExpiryDate: payload?.ExpiryDate,
     ReceivedDate: receivedDate,
     TempRequirement: tempRequirement,
+    SuggestedZoneID: suggestedZoneId,
     StoredZoneID: autoZoneId,
-    SuggestedZoneID: String(payload?.SuggestedZoneID || autoZoneId),
-    Status: payload?.Status || "Received",
+    Status: status,
+    Notes: notes,
   };
   const { data, error } = await supabase.from("tblDonationLot").insert(insertPayload).select().single();
   if (error) throw error;

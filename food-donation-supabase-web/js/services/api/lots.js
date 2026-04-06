@@ -3,6 +3,7 @@ import { parseNumber } from "../../ui/forms.js";
 import { withMultiSearch, withFilters, withSort, withDateRange } from "../queries.js";
 
 const SEARCH_COLUMNS = ["Status", "TempRequirement"];
+const today = () => new Date().toISOString().slice(0, 10);
 
 export async function listLots({ search = "", filters = {}, sort = "ReceivedDate", sortDir = "desc", fromDate = "", toDate = "", nearExpiryDays } = {}) {
   let query = supabase
@@ -95,8 +96,21 @@ async function generateLotCode(receivedDate) {
   return `${prefix}${String(nextNumber).padStart(5, "0")}`;
 }
 
+async function writeZoneCapacityLog(zoneId) {
+  if (!zoneId) return;
+  const { data: rows, error: sumError } = await supabase.from("tblInventory").select("OnHandKg").eq("ZoneID", zoneId);
+  if (sumError) throw sumError;
+  const usedKg = (rows || []).reduce((sum, row) => sum + Number(row.OnHandKg || 0), 0);
+  const { error: logError } = await supabase.from("tblZoneCapacityLog").insert({
+    ZoneID: zoneId,
+    LogDate: today(),
+    UsedKg: Number(usedKg.toFixed(2)),
+  });
+  if (logError) throw logError;
+}
+
 export async function receiveLot(payload) {
-  const today = new Date().toISOString().slice(0, 10);
+  const receivedOn = today();
   const donorId = parseNumber(payload?.DonorID);
   const productId = parseNumber(payload?.ProductID);
   const qtyUnits = parseNumber(payload?.QuantityUnits);
@@ -104,7 +118,7 @@ export async function receiveLot(payload) {
   const totalWeightKg = Number((qtyUnits * unitWeightKg).toFixed(2));
   const tempRequirement = payload?.TempRequirement;
   const autoZoneId = payload?.StoredZoneID ? parseNumber(payload.StoredZoneID) : await pickAvailableZoneId(tempRequirement, totalWeightKg);
-  const receivedDate = today;
+  const receivedDate = receivedOn;
   const lotCode = payload?.LotCode || (await generateLotCode(receivedDate));
   const insertPayload = {
     ...payload,
@@ -122,13 +136,25 @@ export async function receiveLot(payload) {
   };
   const { data, error } = await supabase.from("tblDonationLot").insert(insertPayload).select().single();
   if (error) throw error;
+
+  const inventoryPayload = {
+    LotID: data.LotID,
+    ZoneID: autoZoneId,
+    OnHandUnits: String(qtyUnits),
+    OnHandKg: String(totalWeightKg),
+    LastUpdated: receivedOn,
+  };
+  const { error: inventoryError } = await supabase.from("tblInventory").insert(inventoryPayload);
+  if (inventoryError) throw inventoryError;
+  await writeZoneCapacityLog(autoZoneId);
+
   return data;
 }
 
 export async function putToZone({ lotId, zoneId, units }) {
   const { data: lot, error: lotError } = await supabase
     .from("tblDonationLot")
-    .select("LotID, UnitWeightKg")
+    .select("LotID, UnitWeightKg, StoredZoneID")
     .eq("LotID", lotId)
     .single();
   if (lotError) throw lotError;
@@ -139,7 +165,7 @@ export async function putToZone({ lotId, zoneId, units }) {
     ZoneID: zoneId,
     OnHandUnits: units,
     OnHandKg: onHandKg,
-    LastUpdated: new Date().toISOString(),
+    LastUpdated: today(),
   };
 
   const { data, error } = await supabase
@@ -150,5 +176,9 @@ export async function putToZone({ lotId, zoneId, units }) {
   if (error) throw error;
 
   await supabase.from("tblDonationLot").update({ StoredZoneID: zoneId, Status: "Stored" }).eq("LotID", lotId);
+  await writeZoneCapacityLog(zoneId);
+  if (lot.StoredZoneID && String(lot.StoredZoneID) !== String(zoneId)) {
+    await writeZoneCapacityLog(lot.StoredZoneID);
+  }
   return data;
 }

@@ -83,7 +83,6 @@ export async function render(container) {
       .select("LotID, ExpiryDate, Status, QuantityUnits, tblProduct:ProductID(ProductName), tblDonor:DonorID(DonorName)")
       .gte("ExpiryDate", from)
       .lte("ExpiryDate", to)
-      .in("Status", ["Received", "Stored"])
       .order("ExpiryDate", { ascending: true });
     if (error) throw error;
     data1 = data || [];

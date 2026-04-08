@@ -47,42 +47,32 @@ const MODULES = [
 
 // ── Fetch all summary data in one pass ───────────────────────────────────────
 async function fetchSummary() {
-  const [donorsR, productsR, lotsR, zonesR, invR, beneR, ordersR] = await Promise.all([
-    supabase.from("tblDonor").select("DonorID", { count: "exact", head: true }),
-    supabase.from("tblProduct").select("ProductID", { count: "exact", head: true }),
-    supabase.from("tblDonationLot").select("LotID, ExpiryDate, Status"),
-    supabase.from("tblStorageZone").select("ZoneID, ZoneName, CapacityKg"),
-    supabase.from("tblInventory").select("ZoneID, OnHandKg"),
-    supabase.from("tblBeneficiary").select("BeneficiaryID", { count: "exact", head: true }),
-    supabase.from("tblOrders").select("OrderID, Status"),
-  ]);
+  const { data, error } = await supabase.rpc("fn_admin_summary");
+  if (error) throw error;
+  const s = Array.isArray(data) ? data[0] : data;
 
-  const lots = lotsR.data || [];
-  const inv  = invR.data  || [];
-  const zones = zonesR.data || [];
-  const orders = ordersR.data || [];
+  // over-capacity zones still need per-zone detail — use fn_dashboard_zone_utilization
+  const { data: zones, error: zErr } = await supabase.rpc("fn_dashboard_zone_utilization");
+  if (zErr) throw zErr;
 
-  const today = new Date().toISOString().slice(0, 10);
-  const in7   = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
-
-  const nearExpiry = lots.filter((l) => l.ExpiryDate >= today && l.ExpiryDate <= in7 && ["Received","Stored"].includes(l.Status)).length;
-  const openOrders = orders.filter((o) => o.Status === "Pending").length;
-
-  const overCapZones = zones.filter((z) => {
-    const used = inv.filter((i) => String(i.ZoneID) === String(z.ZoneID)).reduce((s, i) => s + Number(i.OnHandKg || 0), 0);
-    return z.CapacityKg && (used / z.CapacityKg) >= 0.9;
-  });
+  const overCapZones = (zones || []).filter((z) =>
+    z.CapacityKg && (Number(z.UsedKg) / Number(z.CapacityKg)) >= 0.9
+  );
 
   return {
     counts: {
-      donors:        donorsR.count  || 0,
-      products:      productsR.count || 0,
-      lots:          lots.filter((l) => l.Status !== "Completed").length,
-      zones:         zones.length,
-      beneficiaries: beneR.count || 0,
-      orders:        orders.length,
+      donors:        Number(s.total_donors),
+      products:      Number(s.total_products),
+      lots:          Number(s.active_lots),
+      zones:         Number(s.total_zones),
+      beneficiaries: Number(s.total_beneficiaries),
+      orders:        Number(s.total_orders),
     },
-    alerts: { nearExpiry, openOrders, overCapZones },
+    alerts: {
+      nearExpiry:  Number(s.near_expiry_count),
+      openOrders:  Number(s.pending_orders),
+      overCapZones,
+    },
   };
 }
 

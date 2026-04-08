@@ -3,8 +3,6 @@ import { exportCSV, showToast } from "../ui/components.js";
 
 const COLLAPSE_KEY = "fdms_report_panel_state";
 
-function asDate(d) { return d.toISOString().slice(0, 10); }
-
 function loadCollapse() {
   try { return JSON.parse(localStorage.getItem(COLLAPSE_KEY) || "{}"); } catch { return {}; }
 }
@@ -58,33 +56,23 @@ export async function render(container) {
   let data1 = [], data2 = [], data3 = [], data4 = [];
 
   async function loadNearExpiry() {
-    const from = asDate(new Date());
-    const to   = asDate(new Date(Date.now() + 7 * 86400000));
-    const { data, error } = await supabase
-      .from("tblDonationLot")
-      .select("LotID, ExpiryDate, Status, QuantityUnits, tblProduct:ProductID(ProductName), tblDonor:DonorID(DonorName)")
-      .gte("ExpiryDate", from).lte("ExpiryDate", to)
-      .in("Status", ["Received", "Stored"])
-      .order("ExpiryDate", { ascending: true });
+    const { data, error } = await supabase.rpc("fn_report_near_expiry", { p_days: 7 });
     if (error) throw error;
     data1 = data || [];
     container.querySelector("[data-section='r1'] .section-body").innerHTML =
       `<div class="table-wrap"><table><thead><tr><th>LotID</th><th>Product</th><th>Donor</th><th>Expiry</th><th>Units</th></tr></thead><tbody>${
-        data1.map((r) => `<tr><td>${r.LotID}</td><td>${r.tblProduct?.ProductName || ""}</td><td>${r.tblDonor?.DonorName || ""}</td><td>${r.ExpiryDate}</td><td>${r.QuantityUnits}</td></tr>`).join("") ||
+        data1.map((r) => `<tr><td>${r.LotID}</td><td>${r.ProductName}</td><td>${r.DonorName}</td><td>${r.ExpiryDate}</td><td>${r.QuantityUnits}</td></tr>`).join("") ||
         "<tr><td colspan='5' class='muted'>No rows</td></tr>"
       }</tbody></table></div>`;
   }
 
   async function loadUtilization() {
-    const [{ data: zones, error: zErr }, { data: inv, error: iErr }] = await Promise.all([
-      supabase.from("tblStorageZone").select("ZoneID, ZoneName, CapacityKg"),
-      supabase.from("tblInventory").select("ZoneID, OnHandKg"),
-    ]);
-    if (zErr || iErr) throw zErr || iErr;
-    data2 = (zones || []).map((z) => {
-      const used = (inv || []).filter((i) => String(i.ZoneID) === String(z.ZoneID)).reduce((s, i) => s + Number(i.OnHandKg || 0), 0);
-      return { ZoneID: z.ZoneID, ZoneName: z.ZoneName, CapacityKg: z.CapacityKg, UsedKg: Number(used.toFixed(2)), UtilizationPct: z.CapacityKg ? Number(((used / z.CapacityKg) * 100).toFixed(2)) : 0 };
-    });
+    const { data, error } = await supabase.rpc("fn_report_zone_utilization");
+    if (error) throw error;
+    data2 = (data || []).map((r) => ({
+      ZoneID: r.ZoneID, ZoneName: r.ZoneName, CapacityKg: r.CapacityKg,
+      UsedKg: Number(r.UsedKg), UtilizationPct: Number(r.UtilizationPct),
+    }));
     container.querySelector("[data-section='r2'] .section-body").innerHTML =
       `<div class="table-wrap"><table><thead><tr><th>Zone</th><th>Used</th><th>Capacity</th><th>Utilization</th></tr></thead><tbody>${
         data2.map((r) => `<tr><td>${r.ZoneName}</td><td>${r.UsedKg}</td><td>${r.CapacityKg}</td>
@@ -94,17 +82,13 @@ export async function render(container) {
   }
 
   async function loadFulfillment() {
-    const [{ data: openOrders, error: oErr }, { data: lines, error: lErr }, { data: allocations, error: aErr }] = await Promise.all([
-      supabase.from("tblOrders").select("OrderID, Status").filter("Status", "not.in", '("Completed","Cancelled")'),
-      supabase.from("tblOrderLine").select("OrderLineID, OrderID, ProductID, QtyUnits"),
-      supabase.from("tblPickAllocation").select("OrderLineID, AllocUnits"),
-    ]);
-    if (oErr || lErr || aErr) throw oErr || lErr || aErr;
-    const openIds = new Set((openOrders || []).map((o) => o.OrderID));
-    data3 = (lines || []).filter((l) => openIds.has(l.OrderID)).map((l) => {
-      const alloc = (allocations || []).filter((a) => String(a.OrderLineID) === String(l.OrderLineID)).reduce((s, a) => s + Number(a.AllocUnits || 0), 0);
-      return { OrderLineID: l.OrderLineID, OrderID: l.OrderID, RequestedUnits: l.QtyUnits, AllocatedUnits: alloc, CompletionPct: l.QtyUnits ? Number(((alloc / l.QtyUnits) * 100).toFixed(2)) : 0 };
-    });
+    const { data, error } = await supabase.rpc("fn_report_order_fulfillment");
+    if (error) throw error;
+    data3 = (data || []).map((r) => ({
+      OrderLineID: r.OrderLineID, OrderID: r.OrderID,
+      RequestedUnits: r.RequestedUnits, AllocatedUnits: r.AllocatedUnits,
+      CompletionPct: Number(r.CompletionPct),
+    }));
     container.querySelector("[data-section='r3'] .section-body").innerHTML =
       `<div class="table-wrap"><table><thead><tr><th>OrderLine</th><th>Order</th><th>Requested</th><th>Allocated</th><th>Completion</th></tr></thead><tbody>${
         data3.map((r) => `<tr><td>${r.OrderLineID}</td><td>${r.OrderID}</td><td>${r.RequestedUnits}</td><td>${r.AllocatedUnits}</td>
@@ -114,20 +98,12 @@ export async function render(container) {
   }
 
   async function loadDonorContribution(from, to) {
-    let query = supabase.from("tblDonationLot").select("DonorID, QuantityUnits, UnitWeightKg, ReceivedDate");
-    if (from) query = query.gte("ReceivedDate", from);
-    if (to)   query = query.lte("ReceivedDate", to);
-    const [{ data: lots, error: lotErr }, { data: donors, error: donorErr }] = await Promise.all([query, supabase.from("tblDonor").select("DonorID, DonorName")]);
-    if (lotErr || donorErr) throw lotErr || donorErr;
-    const byDonor = new Map();
-    (lots || []).forEach((l) => {
-      const curr = byDonor.get(l.DonorID) || { DonorID: l.DonorID, Total_Units: 0, Total_kg: 0 };
-      curr.Total_Units += Number(l.QuantityUnits || 0);
-      curr.Total_kg    += Number(l.QuantityUnits || 0) * Number(l.UnitWeightKg || 0);
-      byDonor.set(l.DonorID, curr);
+    const { data, error } = await supabase.rpc("fn_report_donor_contribution", {
+      p_from_date: from || null,
+      p_to_date:   to   || null,
     });
-    const names = new Map((donors || []).map((d) => [d.DonorID, d.DonorName]));
-    data4 = [...byDonor.values()].map((r) => ({ DonorID: r.DonorID, Donor_Name: names.get(r.DonorID) || r.DonorID, Total_Units: r.Total_Units, Total_kg: Number(r.Total_kg.toFixed(2)) }));
+    if (error) throw error;
+    data4 = data || [];
     container.querySelector("[data-section='r4'] .section-body").innerHTML =
       `<div class="table-wrap"><table><thead><tr><th>Donor</th><th>Total Units</th><th>Total kg</th></tr></thead><tbody>${
         data4.map((r) => `<tr><td>${r.Donor_Name}</td><td>${r.Total_Units}</td><td>${r.Total_kg}</td></tr>`).join("") ||
@@ -135,7 +111,6 @@ export async function render(container) {
       }</tbody></table></div>`;
   }
 
-  // ── load data ──────────────────────────────────────────────────────────────
   try {
     await Promise.all([loadNearExpiry(), loadUtilization(), loadFulfillment()]);
     await loadDonorContribution();
@@ -143,10 +118,8 @@ export async function render(container) {
     showToast(err.message, "error");
   }
 
-  // ── apply saved collapse state ─────────────────────────────────────────────
   ["r1", "r2", "r3", "r4"].forEach((id) => applyCollapse(container, id, !!collapseState[id]));
 
-  // ── toggle buttons ─────────────────────────────────────────────────────────
   container.querySelectorAll("[data-toggle]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const id = btn.dataset.toggle;
@@ -160,13 +133,11 @@ export async function render(container) {
     ["r1", "r2", "r3", "r4"].forEach((id) => { collapseState[id] = false; applyCollapse(container, id, false); });
     saveCollapse(collapseState);
   });
-
   container.querySelector("#collapseAll").addEventListener("click", () => {
     ["r1", "r2", "r3", "r4"].forEach((id) => { collapseState[id] = true; applyCollapse(container, id, true); });
     saveCollapse(collapseState);
   });
 
-  // ── date filter & CSV ──────────────────────────────────────────────────────
   container.querySelector("#applyDate").addEventListener("click", async () => {
     try { await loadDonorContribution(container.querySelector("#fromDate").value, container.querySelector("#toDate").value); }
     catch (err) { showToast(err.message, "error"); }

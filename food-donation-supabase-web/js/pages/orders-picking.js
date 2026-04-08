@@ -1,11 +1,10 @@
 import { listBeneficiaries } from "../services/api/beneficiaries.js";
 import { listProducts } from "../services/api/products.js";
 import { addOrderLine, cancelOrder, createOrder, listOpenOrders, listOrderLines, listOrders } from "../services/api/orders.js";
-import { allocate, fefoCandidates, markPicked } from "../services/api/picks.js";
+import { allocate, fefoCandidates, listPickAllocations, markPicked } from "../services/api/picks.js";
 import { bindSortSelect, confirmModal, renderSortSelect, showToast } from "../ui/components.js";
 import { formDataToObject, parseNumber } from "../ui/forms.js";
 import { store } from "../store.js";
-import { supabase } from "../services/supabaseClient.js";
 
 // ── collapse state ────────────────────────────────────────────────────────────
 const COLLAPSE_KEY = "fdms_orderspicking_collapse";
@@ -230,10 +229,7 @@ async function renderPicking(container, collapseState) {
     const lines = await listOrderLines(orderId);
     const blocks = await Promise.all(lines.map(async (line) => ({ line, candidates: await fefoCandidates(line.ProductID) })));
 
-    const { data: allocations } = await supabase
-      .from("tblPickAllocation")
-      .select("AllocationID, OrderLineID, AllocUnits, PickedAt")
-      .in("OrderLineID", lines.map((l) => l.OrderLineID));
+    const allocations = await listPickAllocations(lines.map((l) => l.OrderLineID));
 
     section.innerHTML = `
       <div style="display:flex;align-items:center;gap:.75rem;padding:.5rem 0 .75rem">

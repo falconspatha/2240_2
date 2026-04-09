@@ -50,7 +50,7 @@ export async function render(container) {
     // Expiry chart — fill 7-day buckets
     const buckets = new Map();
     for (let i = 0; i < 7; i++) {
-      const d = new Date(Date.now() + i * 86400000).toISOString().slice(0, 10);
+      const d = new Date(Date.now() + 8 * 3600000 + i * 86400000).toISOString().slice(0, 10);
       buckets.set(d, 0);
     }
     (expiry || []).forEach((r) => { if (buckets.has(r.ExpiryDate)) buckets.set(r.ExpiryDate, Number(r.lot_count)); });

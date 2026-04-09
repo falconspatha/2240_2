@@ -105,7 +105,7 @@ export async function render(container) {
     const paged = rows.slice(from, from + PAGE_SIZE);
     container.querySelector("#rows").innerHTML =
       paged.map((r) => {
-        const soon = r.ExpiryDate && (new Date(r.ExpiryDate) - Date.now()) / 86400000 <= 7;
+        const soon = r.ExpiryDate && (new Date(r.ExpiryDate).getTime() - new Date(todayHKT()).getTime()) / 86400000 <= 7;
         return `<tr>
           <td>${r.LotID}</td><td>${r.tblDonor?.DonorName || r.DonorID}</td><td>${r.tblProduct?.ProductName || r.ProductID}</td>
           <td>${r.QuantityUnits}</td><td>${r.UnitWeightKg}</td><td>${r.ExpiryDate || ""}</td><td>${r.ReceivedDate || ""}</td>

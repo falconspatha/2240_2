@@ -24,7 +24,6 @@ export async function createDonor(payload) {
     p_email:      payload.Email,
     p_address:    payload.Address,
     p_district:   payload.District,
-    p_created_at: payload.CreatedAt?.slice(0, 10) || new Date().toISOString().slice(0, 10),
   });
   if (error) throw error;
   return Array.isArray(data) ? data[0] : data;

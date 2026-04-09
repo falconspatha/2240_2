@@ -27,7 +27,6 @@ export async function createBeneficiary(payload) {
     p_latitude:     payload.Latitude     ? Number(payload.Latitude)  : null,
     p_longitude:    payload.Longitude    ? Number(payload.Longitude) : null,
     p_cold_storage: Boolean(payload.HasColdStorage),
-    p_created_at:   payload.CreatedAt?.slice(0, 10) || new Date().toISOString().slice(0, 10),
   });
   if (error) throw error;
   return Array.isArray(data) ? data[0] : data;

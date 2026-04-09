@@ -165,7 +165,6 @@ export async function render(container) {
       e.preventDefault();
       const payload = formDataToObject(e.currentTarget);
       if (!required(payload.DonorName)) return showToast("Name is required", "error");
-      payload.CreatedAt = new Date().toISOString();
       await createDonor(payload);
       modal.innerHTML = "";
       showToast("Donor created");

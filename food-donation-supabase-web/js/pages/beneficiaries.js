@@ -29,8 +29,8 @@ function form(row = {}) {
   return `
     <form id="beneficiaryForm" class="form-grid">
       <label>Name<input name="BeneficiaryName" required value="${row.BeneficiaryName || ""}"></label>
-      <label>Contact<input name="ContactName" value="${row.ContactName || ""}"></label>
-      <label>Phone<input name="Phone" value="${row.Phone || ""}"></label>
+      <label>Contact<input name="ContactName" required value="${row.ContactName || ""}"></label>
+      <label>Phone<input name="Phone" required value="${row.Phone || ""}"></label>
       <label>District
         <select name="District" required>
           <option value="" disabled ${!row.District ? "selected" : ""} hidden>-- Select --</option>
@@ -106,7 +106,7 @@ export async function render(container) {
           e.preventDefault();
           const payload = formDataToObject(e.currentTarget);
           payload.HasColdStorage = payload.HasColdStorage === "true";
-          if (!required(payload.BeneficiaryName)) return showToast("Name required", "error");
+          if (!required(payload.BeneficiaryName) || !required(payload.ContactName) || !required(payload.Phone)) return showToast("Name, Contact and Phone are required", "error");
           await updateBeneficiary(row.BeneficiaryID, payload);
           m.innerHTML = "";
           showToast("Beneficiary updated");
@@ -157,8 +157,7 @@ export async function render(container) {
       e.preventDefault();
       const payload = formDataToObject(e.currentTarget);
       payload.HasColdStorage = payload.HasColdStorage === "true";
-      payload.CreatedAt = new Date().toISOString();
-      if (!required(payload.BeneficiaryName)) return showToast("Name required", "error");
+      if (!required(payload.BeneficiaryName) || !required(payload.ContactName) || !required(payload.Phone)) return showToast("Name, Contact and Phone are required", "error");
       await createBeneficiary(payload);
       m.innerHTML = "";
       showToast("Beneficiary created");

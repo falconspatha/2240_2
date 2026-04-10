@@ -1,6 +1,6 @@
 import { STRINGS } from "./ui/strings.js";
 import { getSession } from "./auth/session.js";
-import { canAccessRoute, getRoleHome } from "./auth/authorization.js";
+import { canAccessRoute, getRoleHome, getRoleRoutes } from "./auth/authorization.js";
 
 const routes = {
   login: () => import("./pages/login.js"),
@@ -14,11 +14,9 @@ const routes = {
   donors: () => import("./pages/donors.js"),
   products: () => import("./pages/products.js"),
   lots: () => import("./pages/lots.js"),
-  zones: () => import("./pages/zones.js"),
-  inventory: () => import("./pages/inventory.js"),
+  "zones-inventory": () => import("./pages/zones-inventory.js"),
   beneficiaries: () => import("./pages/beneficiaries.js"),
-  orders: () => import("./pages/orders.js"),
-  picking: () => import("./pages/picking.js"),
+  "orders-picking": () => import("./pages/orders-picking.js"),
   reports: () => import("./pages/reports.js"),
   "beneficiary-register": () => import("./pages/beneficiary-register.js"),
   "beneficiary-order": () => import("./pages/beneficiary-order.js"),
@@ -31,10 +29,46 @@ const routes = {
 let currentPage;
 const PUBLIC_ROUTES = new Set(["login"]);
 
+function tryRedirectLegacyMergedRoutes(session, pathPart) {
+  if (!pathPart) return false;
+  const allowed = getRoleRoutes(session.role);
+  const queryPart = location.hash.includes("?") ? location.hash.slice(location.hash.indexOf("?") + 1) : "";
+  const params = new URLSearchParams(queryPart);
+
+  if (pathPart === "orders" && allowed.includes("orders-picking")) {
+    params.delete("tab");
+    const q = params.toString();
+    location.hash = `#/orders-picking${q ? `?${q}` : ""}`;
+    return true;
+  }
+  if (pathPart === "picking" && allowed.includes("orders-picking")) {
+    params.set("tab", "picking");
+    location.hash = `#/orders-picking?${params}`;
+    return true;
+  }
+  if (pathPart === "zones" && allowed.includes("zones-inventory")) {
+    params.delete("tab");
+    const q = params.toString();
+    location.hash = `#/zones-inventory${q ? `?${q}` : ""}`;
+    return true;
+  }
+  if (pathPart === "inventory" && allowed.includes("zones-inventory")) {
+    params.set("tab", "inventory");
+    location.hash = `#/zones-inventory?${params}`;
+    return true;
+  }
+  return false;
+}
+
 export async function navigate() {
   const app = document.getElementById("app");
   const session = getSession();
-  const requestedKey = (location.hash.replace("#/", "") || (session ? getRoleHome(session.role) : "dashboard")).split("?")[0];
+  const hashBody = location.hash.replace(/^#\/?/, "");
+  const pathPart = hashBody.split("?")[0];
+  if (session && pathPart && tryRedirectLegacyMergedRoutes(session, pathPart)) {
+    return;
+  }
+  const requestedKey = (pathPart || (session ? getRoleHome(session.role) : "dashboard")).split("?")[0];
   const pageKey = !session && !PUBLIC_ROUTES.has(requestedKey) ? "login" : requestedKey;
   let safeKey = routes[pageKey] ? pageKey : session ? getRoleHome(session.role) : "login";
   if (session && safeKey !== "login" && !canAccessRoute(session.role, safeKey)) {

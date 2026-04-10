@@ -4,7 +4,12 @@ import { showToast } from "../ui/components.js";
 import { parseNumber } from "../ui/forms.js";
 import { store } from "../store.js";
 
-export async function render(container) {
+export async function render(container, ctx = {}) {
+  const hash = ctx.hash || location.hash;
+  const params = new URLSearchParams((hash.split("?")[1] || ""));
+  const orderId = params.get("orderId");
+  if (orderId) store.contextOrderId = orderId;
+
   container.innerHTML = `
     <section class="card">
       <div class="toolbar">

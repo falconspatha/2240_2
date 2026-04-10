@@ -4,97 +4,67 @@ import { withMultiSearch, withFilters, withSort, withDateRange } from "../querie
 import { logComputedZoneUsage } from "./capacity.js";
 import { getProductById } from "./products.js";
 
-const SEARCH_COLUMNS = ["Status", "TempRequirement"];
-const today = () => new Date().toISOString().slice(0, 10);
-
-export async function listLots({ search = "", filters = {}, sort = "ReceivedDate", sortDir = "desc", fromDate = "", toDate = "", nearExpiryDays } = {}) {
-  let query = supabase
-    .from("tblDonationLot")
-    .select(
-      "LotID, DonorID, ProductID, QuantityUnits, UnitWeightKg, ExpiryDate, ReceivedDate, TempRequirement, StoredZoneID, Status, tblDonor:DonorID(DonorName), tblProduct:ProductID(ProductName)",
-    );
-  query = withMultiSearch(query, SEARCH_COLUMNS, search);
-  query = withFilters(query, filters);
-  query = withDateRange(query, "ReceivedDate", fromDate || null, toDate || null);
-  if (nearExpiryDays) {
-    const from = new Date().toISOString().slice(0, 10);
-    const toNear = new Date(Date.now() + nearExpiryDays * 86400000).toISOString().slice(0, 10);
-    query = query.gte("ExpiryDate", from).lte("ExpiryDate", toNear);
-  }
-  query = withSort(query, sort, sortDir);
-  const { data, error } = await query;
-  if (error) throw error;
-  return data || [];
-}
-
-async function pickAvailableZoneId(tempRequirement, incomingKg) {
-  const { data: zones, error: zoneError } = await supabase
-    .from("tblStorageZone")
-    .select("ZoneID, ZoneName, TempBand, CapacityKg");
-  if (zoneError) throw zoneError;
-
-  const { data: inventory, error: inventoryError } = await supabase
-    .from("tblInventory")
-    .select("ZoneID, OnHandKg");
-  if (inventoryError) throw inventoryError;
-
-  const normalizedTemp = String(tempRequirement || "").trim().toLowerCase();
-  const matching = (zones || []).filter((zone) => String(zone.TempBand || "").trim().toLowerCase() === normalizedTemp);
-  if (!matching.length) {
-    throw new Error(`No storage zone found for temperature: ${tempRequirement}`);
-  }
-
-  const usedByZone = new Map();
-  (inventory || []).forEach((row) => {
-    const current = usedByZone.get(row.ZoneID) || 0;
-    usedByZone.set(row.ZoneID, current + Number(row.OnHandKg || 0));
+export async function listLots({ search = "", filters = {}, sort = "ReceivedDate", sortDir = "desc", sort2, sortDir2, fromDate = "", toDate = "" } = {}) {
+  const { data, error } = await supabase.rpc("fn_list_lots", {
+    p_search:     search,
+    p_product_id: filters.ProductID ? Number(filters.ProductID) : 0,
+    p_from_date:  fromDate || null,
+    p_to_date:    toDate   || null,
+    p_sort:       sort,
+    p_sort_dir:   sortDir,
+    p_sort2:      sort2    || null,
+    p_sort_dir2:  sortDir2 || "asc",
   });
-
-  const withCapacity = matching
-    .map((zone) => {
-      const usedKg = Number(usedByZone.get(zone.ZoneID) || 0);
-      const capacityKg = Number(zone.CapacityKg || 0);
-      const freeKg = capacityKg - usedKg;
-      return { ...zone, freeKg };
-    })
-    .sort((a, b) => b.freeKg - a.freeKg);
-
-  const suitable = withCapacity.find((zone) => zone.freeKg >= Number(incomingKg || 0));
-  if (suitable) return suitable.ZoneID;
-
-  const fallback = withCapacity[0];
-  if (fallback) return fallback.ZoneID;
-  throw new Error("No storage zone available.");
-}
-
-function lotDatePart(dateText) {
-  const date = new Date(dateText || new Date().toISOString().slice(0, 10));
-  const dd = String(date.getDate()).padStart(2, "0");
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const yy = String(date.getFullYear()).slice(-2);
-  return `${yy}${mm}${dd}`;
-}
-
-async function generateLotCode(receivedDate) {
-  const datePart = lotDatePart(receivedDate);
-  const prefix = `LOT${datePart}-`;
-  const { data, error } = await supabase
-    .from("tblDonationLot")
-    .select("LotCode")
-    .like("LotCode", `${prefix}%`)
-    .order("LotCode", { ascending: false })
-    .limit(1);
   if (error) throw error;
+  return (data || []).map((r) => ({
+    ...r,
+    tblDonor:   { DonorName:   r.DonorName   },
+    tblProduct: { ProductName: r.ProductName },
+  }));
+}
 
-  let nextNumber = 1;
-  const latest = data?.[0]?.LotCode;
-  if (latest) {
-    const match = String(latest).match(/-(\d{5})$/);
-    if (match) {
-      nextNumber = Number(match[1]) + 1;
-    }
+export async function receiveLot(payload) {
+  // 1. Auto-select zone if not provided
+  let zoneId = payload.StoredZoneID ? Number(payload.StoredZoneID) : null;
+  if (!zoneId) {
+    const qtyUnits     = Number(payload.QuantityUnits);
+    const unitWeightKg = Number(payload.UnitWeightKg);
+    const totalKg      = qtyUnits * unitWeightKg;
+    const { data: zData, error: zErr } = await supabase.rpc("fn_pick_available_zone", {
+      p_temp_requirement: payload.TempRequirement,
+      p_incoming_kg:      totalKg,
+    });
+    if (zErr) throw zErr;
+    zoneId = zData;
+    if (!zoneId) throw new Error(`No storage zone available for temperature: ${payload.TempRequirement}`);
   }
 
+  // 2. Generate lot code if not provided
+  const receivedDate = payload.ReceivedDate || new Date().toISOString().slice(0, 10);
+  let lotCode = payload.LotCode || null;
+  if (!lotCode) {
+    const { data: cData, error: cErr } = await supabase.rpc("fn_generate_lot_code", {
+      p_received_date: receivedDate,
+    });
+    if (cErr) throw cErr;
+    lotCode = cData;
+  }
+
+  // 3. Insert lot + inventory
+  const { data, error } = await supabase.rpc("fn_receive_lot", {
+    p_donor_id:          Number(payload.DonorID),
+    p_product_id:        Number(payload.ProductID),
+    p_lot_code:          lotCode,
+    p_qty_units:         Number(payload.QuantityUnits),
+    p_unit_weight_kg:    Number(payload.UnitWeightKg),
+    p_expiry_date:       payload.ExpiryDate,
+    p_received_date:     receivedDate,
+    p_temp_requirement:  payload.TempRequirement,
+    p_suggested_zone_id: String(zoneId),
+    p_stored_zone_id:    zoneId,
+    p_status:            payload.Status || "Received",
+    p_notes:             payload.Notes  || null,
+  });
   return `${prefix}${String(nextNumber).padStart(5, "0")}`;
 }
 
@@ -139,49 +109,15 @@ export async function receiveLot(payload) {
   };
   const { data, error } = await supabase.from("tblDonationLot").insert(insertPayload).select().single();
   if (error) throw error;
-
-  const inventoryPayload = {
-    LotID: data.LotID,
-    ZoneID: autoZoneId,
-    OnHandUnits: String(qtyUnits),
-    OnHandKg: String(totalWeightKg),
-    LastUpdated: receivedOn,
-  };
-  const { error: inventoryError } = await supabase.from("tblInventory").insert(inventoryPayload);
-  if (inventoryError) throw inventoryError;
-  await logComputedZoneUsage(autoZoneId);
-
-  return data;
+  return Array.isArray(data) ? data[0] : data;
 }
 
 export async function putToZone({ lotId, zoneId, units }) {
-  const { data: lot, error: lotError } = await supabase
-    .from("tblDonationLot")
-    .select("LotID, UnitWeightKg, StoredZoneID")
-    .eq("LotID", lotId)
-    .single();
-  if (lotError) throw lotError;
-
-  const onHandKg = parseNumber(units) * parseNumber(lot.UnitWeightKg);
-  const payload = {
-    LotID: lotId,
-    ZoneID: zoneId,
-    OnHandUnits: units,
-    OnHandKg: onHandKg,
-    LastUpdated: today(),
-  };
-
-  const { data, error } = await supabase
-    .from("tblInventory")
-    .upsert(payload, { onConflict: "LotID,ZoneID" })
-    .select()
-    .single();
+  const { data, error } = await supabase.rpc("fn_put_to_zone", {
+    p_lot_id:  Number(lotId),
+    p_zone_id: Number(zoneId),
+    p_units:   Number(units),
+  });
   if (error) throw error;
-
-  await supabase.from("tblDonationLot").update({ StoredZoneID: zoneId, Status: "Stored" }).eq("LotID", lotId);
-  await logComputedZoneUsage(zoneId);
-  if (lot.StoredZoneID && String(lot.StoredZoneID) !== String(zoneId)) {
-    await logComputedZoneUsage(lot.StoredZoneID);
-  }
-  return data;
+  return Array.isArray(data) ? data[0] : data;
 }

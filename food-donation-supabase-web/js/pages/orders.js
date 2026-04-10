@@ -54,7 +54,7 @@ export async function render(container) {
   let selectedOrderId = null;
 
   async function loadOrders() {
-    const rows = await listOrders({ search: queryState.search, filters: queryState.filters, sort: queryState.sort, sortDir: queryState.sortDir });
+    const rows = await listOrders({ search: queryState.search, filters: queryState.filters, sort: queryState.sort, sortDir: queryState.sortDir, sort2: queryState.sort2, sortDir2: queryState.sortDir2 });
     container.querySelector("#orderRows").innerHTML = rows
       .map(
         (o) => `<tr>

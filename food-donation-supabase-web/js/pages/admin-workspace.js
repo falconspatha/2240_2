@@ -1,17 +1,6 @@
 import { showToast } from "../ui/components.js";
 import { supabase } from "../services/supabaseClient.js";
-
-const WORKSPACE_MODULES = [
-  { title: "Donor Management", description: "Register and maintain donor profiles.", route: "donors" },
-  { title: "Product Catalog", description: "Maintain product definitions and handling requirements.", route: "products" },
-  { title: "Donation Lots", description: "Receive lots and place them into storage zones.", route: "lots" },
-  { title: "Storage Zones", description: "Update zone capacities and temperature bands.", route: "zones" },
-  { title: "Inventory", description: "Run stock adjustments and inspect availability.", route: "inventory" },
-  { title: "Beneficiaries", description: "Maintain beneficiary records and contacts.", route: "beneficiaries" },
-  { title: "Orders", description: "Create demand orders and line items.", route: "orders" },
-  { title: "Picking", description: "Allocate and track fulfillment picks.", route: "picking" },
-  { title: "Reports", description: "Review KPI reports and export operational snapshots.", route: "reports" },
-];
+import { EXAMPLE_QUERIES } from "../data/exampleQueries.js";
 
 const DDL_RULES = [
   /^ALTER\s+TABLE\s+[A-Za-z_][A-Za-z0-9_]*\s+/i,
@@ -23,45 +12,138 @@ function isAllowedDDL(sql) {
   return DDL_RULES.some((rule) => rule.test(sql));
 }
 
+function formatNow() {
+  return new Date().toLocaleString(undefined, {
+    weekday: "short",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function renderResultTable(rows) {
+  const keys = Object.keys(rows[0]);
+  const head = `<thead><tr>${keys.map((k) => `<th>${escapeHtml(k)}</th>`).join("")}</tr></thead>`;
+  const body = rows
+    .map(
+      (row) =>
+        `<tr>${keys.map((k) => `<td>${escapeHtml(row[k] === null || row[k] === undefined ? "" : String(row[k]))}</td>`).join("")}</tr>`,
+    )
+    .join("");
+  return `<table>${head}<tbody>${body}</tbody></table>`;
+}
+
+let clockTimer;
+
 export async function render(container) {
+  const exampleButtons = EXAMPLE_QUERIES.map(
+    (q) =>
+      `<button type="button" class="btn btn-ghost" style="justify-content:flex-start;text-align:left" data-example-id="${q.id}">${escapeHtml(q.label)}</button>`,
+  ).join("");
+
   container.innerHTML = `
     <section class="card">
-      <div class="toolbar">
-        <h3>Admin Workspace</h3>
-      </div>
-      <p class="muted">Task-based control center for operational data, reporting, and controlled schema actions.</p>
-      <div class="form-grid" id="workspaceCards" style="margin-top:1rem"></div>
-    </section>
-    <section class="card" style="margin-top:1rem">
-      <div class="toolbar">
+      <div class="toolbar" style="flex-wrap:wrap;gap:.75rem">
         <h3>Admin SQL Console (Controlled)</h3>
+        <span class="muted" id="adminClock" aria-live="polite"></span>
       </div>
-      <p class="muted">Only DDL statements are accepted. Execution requires a protected Supabase RPC called <code>fn_admin_run_sql</code>.</p>
+      <p class="muted">DDL only below. Execution uses <code>fn_admin_run_sql</code> (admin JWT).</p>
       <form id="ddlForm" style="display:grid;gap:.75rem;margin-top:.8rem">
-        <textarea id="ddlInput" rows="5" placeholder="ALTER TABLE tblDonor ADD COLUMN Email TEXT;" style="width:100%"></textarea>
+        <textarea id="ddlInput" rows="4" placeholder="ALTER TABLE &quot;tblDonor&quot; ADD COLUMN &quot;Extra&quot; TEXT;" style="width:100%;font-family:ui-monospace,monospace;font-size:.85rem"></textarea>
         <div style="display:flex;justify-content:flex-end">
-          <button class="btn btn-primary" type="submit">Run SQL</button>
+          <button class="btn btn-primary" type="submit">Run DDL</button>
         </div>
       </form>
     </section>
+
+    <section class="card" style="margin-top:1rem">
+      <div class="toolbar">
+        <h3>Example report queries</h3>
+      </div>
+      <p class="muted" style="margin-top:.5rem">
+        Same examples as the <code>example query</code> folder (aligned to your schema). Load one, then run — read-only SELECTs use <code>fn_admin_run_select</code>.
+        Apply <code>food-donation-supabase-web/sql/fn_admin_run_select.sql</code> in Supabase if the button errors.
+      </p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.45rem;margin-top:.75rem">
+        ${exampleButtons}
+      </div>
+      <label style="display:block;margin-top:1rem;font-weight:600">Query</label>
+      <textarea id="exampleSql" rows="8" style="width:100%;margin-top:.35rem;font-family:ui-monospace,monospace;font-size:.85rem" placeholder="Choose an example above, or paste a single SELECT…"></textarea>
+      <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:.65rem;flex-wrap:wrap">
+        <button type="button" class="btn btn-ghost" id="clearExampleResult">Clear results</button>
+        <button type="button" class="btn btn-primary" id="runExampleQuery">Run example query</button>
+      </div>
+      <div id="exampleResultWrap" style="margin-top:1rem;max-height:min(480px,60vh);overflow:auto;border:1px solid var(--border);border-radius:8px;padding:.75rem">
+        <p class="muted" id="exampleResultPlaceholder">Results appear here.</p>
+        <div id="exampleResultTable" style="display:none"></div>
+      </div>
+    </section>
   `;
 
-  container.querySelector("#workspaceCards").innerHTML = WORKSPACE_MODULES.map(
-    (mod) => `
-      <article class="card" style="padding:1rem">
-        <h4>${mod.title}</h4>
-        <p class="muted">${mod.description}</p>
-        <div style="margin-top:.65rem">
-          <button class="btn btn-ghost" data-route="${mod.route}">Open</button>
-        </div>
-      </article>
-    `,
-  ).join("");
+  const clockEl = container.querySelector("#adminClock");
+  const tick = () => {
+    if (clockEl) clockEl.textContent = formatNow();
+  };
+  tick();
+  clockTimer = setInterval(tick, 1000);
 
-  container.querySelectorAll("[data-route]").forEach((btn) => {
+  const exampleSql = container.querySelector("#exampleSql");
+  const resultPlaceholder = container.querySelector("#exampleResultPlaceholder");
+  const resultTable = container.querySelector("#exampleResultTable");
+
+  function setExampleResult(html, isTable) {
+    resultPlaceholder.style.display = isTable ? "none" : "";
+    resultTable.style.display = isTable ? "block" : "none";
+    if (isTable) {
+      resultTable.innerHTML = html;
+    } else {
+      resultPlaceholder.innerHTML = html;
+    }
+  }
+
+  container.querySelectorAll("[data-example-id]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      location.hash = `#/${btn.dataset.route}`;
+      const item = EXAMPLE_QUERIES.find((q) => q.id === btn.dataset.exampleId);
+      if (!item) return;
+      exampleSql.value = item.sql;
+      exampleSql.focus();
+      showToast(`Loaded: ${item.label}`);
     });
+  });
+
+  container.querySelector("#clearExampleResult").addEventListener("click", () => {
+    resultTable.innerHTML = "";
+    setExampleResult("Results appear here.", false);
+  });
+
+  container.querySelector("#runExampleQuery").addEventListener("click", async () => {
+    const sql = exampleSql.value.trim();
+    if (!sql) return showToast("Enter or load a query first.", "error");
+    try {
+      const { data, error } = await supabase.rpc("fn_admin_run_select", { p_sql: sql });
+      if (error) throw error;
+      const rows = Array.isArray(data) ? data : data != null ? [data] : [];
+      if (!rows.length) {
+        setExampleResult('<p class="muted">No rows returned.</p>', false);
+        return;
+      }
+      setExampleResult(renderResultTable(rows), true);
+    } catch (error) {
+      showToast(error.message || String(error), "error");
+      setExampleResult(`<p class="muted">${escapeHtml(error.message || String(error))}</p>`, false);
+    }
   });
 
   container.querySelector("#ddlForm").addEventListener("submit", async (event) => {
@@ -83,4 +165,9 @@ export async function render(container) {
   });
 }
 
-export function destroy() {}
+export function destroy() {
+  if (clockTimer) {
+    clearInterval(clockTimer);
+    clockTimer = undefined;
+  }
+}

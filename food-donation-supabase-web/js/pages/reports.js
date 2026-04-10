@@ -51,6 +51,20 @@ function filterFulfillmentLines(lines, q) {
   );
 }
 
+function filterExpiredLots(rows, q) {
+  if (!q?.trim()) return rows;
+  const s = q.trim().toLowerCase();
+  return rows.filter(
+    (r) =>
+      String(r.LotID).includes(s) ||
+      String(r.LotCode || "").toLowerCase().includes(s) ||
+      (r.ProductName || "").toLowerCase().includes(s) ||
+      String(r.ExpiryDate || "").includes(s) ||
+      (r.Status || "").toLowerCase().includes(s) ||
+      (r.ZoneName || "").toLowerCase().includes(s),
+  );
+}
+
 function loadPanelState() {
   try {
     const raw = localStorage.getItem(REPORT_STATE_KEY);
@@ -118,7 +132,13 @@ export async function render(container) {
         <div class="report-panel-content" id="r4"></div>
       </section>
       <section class="card report-panel" data-report-panel="r5">
-        <div class="toolbar"><h3>5) Expired Food Lots</h3><div style="display:flex;gap:.4rem"><button class="btn btn-ghost" data-panel-toggle data-panel="r5">Minimize</button><button class="btn btn-ghost" id="csv5">CSV</button></div></div>
+        <div class="toolbar">
+          <h3>5) Expired Food Lots</h3>
+          <div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center">
+            <button class="btn btn-ghost" data-panel-toggle data-panel="r5">Minimize</button>
+            <button class="btn btn-ghost" id="csv5">CSV (all rows)</button>
+          </div>
+        </div>
         <div class="report-panel-content" id="r5"></div>
       </section>
     </div>
@@ -241,6 +261,84 @@ export async function render(container) {
       renderFulfillmentPanel();
     });
     filterInput?.addEventListener("input", () => debouncedFulfillmentFilter());
+  }
+
+  const expiredUi = { page: 1, pageSize: 25, filter: "" };
+  const debouncedExpiredFilter = debounce(() => {
+    const input = container.querySelector("#r5-filter");
+    expiredUi.filter = input?.value?.trim() ?? "";
+    expiredUi.page = 1;
+    renderExpiredPanel();
+  }, 320);
+
+  function renderExpiredPanel() {
+    const host = container.querySelector("#r5");
+    if (!host) return;
+
+    const q = expiredUi.filter;
+    const filtered = filterExpiredLots(data5, q);
+    const total = filtered.length;
+    const size = expiredUi.pageSize;
+    const pages = Math.max(1, Math.ceil(total / size || 1));
+    if (expiredUi.page > pages) expiredUi.page = pages;
+    const page = Math.max(1, expiredUi.page);
+    const from = (page - 1) * size;
+    const slice = filtered.slice(from, from + size);
+    const start = total ? from + 1 : 0;
+    const end = total ? from + slice.length : 0;
+
+    host.innerHTML = `
+      <p class="muted" style="margin-bottom:.75rem">
+        Lots with <strong>ExpiryDate</strong> before today. <strong>${data5.length}</strong> expired lot(s) total. Use search to narrow; CSV exports every row.
+      </p>
+      <div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-bottom:.75rem">
+        <label class="muted" style="display:flex;align-items:center;gap:.35rem">Search
+          <input type="search" id="r5-filter" placeholder="Lot, product, zone, status…" autocomplete="off" style="min-width:12rem">
+        </label>
+        <label class="muted" style="display:flex;align-items:center;gap:.35rem">Per page
+          <select id="r5-page-size">
+            ${[15, 25, 50, 100]
+              .map((n) => `<option value="${n}" ${size === n ? "selected" : ""}>${n}</option>`)
+              .join("")}
+          </select>
+        </label>
+        <span class="muted">${total ? `Rows ${start}–${end} of ${total}` : "No rows"}</span>
+      </div>
+      <div style="max-height:min(420px,55vh);overflow:auto;border:1px solid var(--border);border-radius:8px">
+        <div id="r5-table-inner"></div>
+      </div>
+      <div id="r5-pager-host" style="margin-top:.75rem"></div>
+    `;
+
+    const filterInput = host.querySelector("#r5-filter");
+    if (filterInput) filterInput.value = expiredUi.filter;
+
+    host.querySelector("#r5-table-inner").innerHTML = `<table><thead><tr><th>LotID</th><th>LotCode</th><th>Product</th><th>Expiry Date</th><th>Days Expired</th><th>Units</th><th>Total kg</th><th>Status</th><th>Zone</th></tr></thead><tbody>${
+      slice
+        .map(
+          (r) =>
+            `<tr><td>${r.LotID}</td><td>${r.LotCode || ""}</td><td>${r.ProductName}</td><td>${r.ExpiryDate}</td><td>${r.DaysExpired}</td><td>${r.QuantityUnits}</td><td>${r.TotalWeightKg}</td><td>${r.Status || ""}</td><td>${r.ZoneName || ""}</td></tr>`,
+        )
+        .join("") || "<tr><td colspan='9' class='muted'>No matching rows</td></tr>"
+    }</tbody></table>`;
+
+    const pagerHost = host.querySelector("#r5-pager-host");
+    if (total > size) {
+      pagerHost.innerHTML = renderPagination({ page, size, total });
+      bindPagination(pagerHost, (newPage) => {
+        expiredUi.page = newPage;
+        renderExpiredPanel();
+      });
+    } else {
+      pagerHost.innerHTML = "";
+    }
+
+    host.querySelector("#r5-page-size")?.addEventListener("change", (e) => {
+      expiredUi.pageSize = Number(e.target.value);
+      expiredUi.page = 1;
+      renderExpiredPanel();
+    });
+    filterInput?.addEventListener("input", () => debouncedExpiredFilter());
   }
 
   async function loadNearExpiry() {
@@ -389,14 +487,8 @@ export async function render(container) {
       ZoneName: [...(zoneByLot.get(String(lot.LotID)) || [])].join(", "),
     }));
 
-    container.querySelector("#r5").innerHTML = `<table><thead><tr><th>LotID</th><th>LotCode</th><th>Product</th><th>Expiry Date</th><th>Days Expired</th><th>Units</th><th>Total kg</th><th>Status</th><th>Zone</th></tr></thead><tbody>${
-      data5
-        .map(
-          (r) =>
-            `<tr><td>${r.LotID}</td><td>${r.LotCode || ""}</td><td>${r.ProductName}</td><td>${r.ExpiryDate}</td><td>${r.DaysExpired}</td><td>${r.QuantityUnits}</td><td>${r.TotalWeightKg}</td><td>${r.Status || ""}</td><td>${r.ZoneName || ""}</td></tr>`,
-        )
-        .join("") || "<tr><td colspan='9' class='muted'>No rows</td></tr>"
-    }</tbody></table>`;
+    expiredUi.page = 1;
+    renderExpiredPanel();
   }
 
   try {

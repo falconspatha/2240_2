@@ -47,6 +47,22 @@ function renderResultTable(rows) {
 
 let clockTimer;
 
+async function runSelectRpc(sql) {
+  const first = await supabase.rpc("fn_admin_run_select", { p_sql: sql });
+  if (!first.error) return first;
+
+  const message = String(first.error.message || "");
+  const code = String(first.error.code || "");
+  const isSignatureCacheMiss =
+    code === "PGRST202" &&
+    message.includes("fn_admin_run_select") &&
+    message.includes("(p_sql)");
+
+  // Backward compatibility: some DBs still define argument name as `sql`.
+  if (!isSignatureCacheMiss) return first;
+  return supabase.rpc("fn_admin_run_select", { sql });
+}
+
 export async function render(container) {
   const exampleButtons = EXAMPLE_QUERIES.map(
     (q) =>
@@ -132,7 +148,7 @@ export async function render(container) {
     const sql = exampleSql.value.trim();
     if (!sql) return showToast("Enter or load a query first.", "error");
     try {
-      const { data, error } = await supabase.rpc("fn_admin_run_select", { p_sql: sql });
+      const { data, error } = await runSelectRpc(sql);
       if (error) throw error;
       const rows = Array.isArray(data) ? data : data != null ? [data] : [];
       if (!rows.length) {

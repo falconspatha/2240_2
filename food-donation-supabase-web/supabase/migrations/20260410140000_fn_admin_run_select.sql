@@ -1,6 +1,4 @@
--- Apply in Supabase: Dashboard → SQL Editor → New query → Paste → Run.
--- If PostgREST still cannot see the function, run once more at the bottom:
---   NOTIFY pgrst, 'reload schema';
+-- Deploy: from project folder, `supabase db push` or paste into Dashboard SQL Editor.
 
 CREATE OR REPLACE FUNCTION public.fn_admin_run_select(p_sql text)
 RETURNS jsonb
@@ -39,7 +37,6 @@ BEGIN
 END;
 $$;
 
--- PostgREST only lists RPCs the DB role can execute. The browser uses the anon key → role "anon".
 REVOKE ALL ON FUNCTION public.fn_admin_run_select(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.fn_admin_run_select(text) TO anon;
 GRANT EXECUTE ON FUNCTION public.fn_admin_run_select(text) TO authenticated;

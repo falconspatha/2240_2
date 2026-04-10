@@ -12,10 +12,6 @@ DECLARE
   v_sql text;
   v_result jsonb;
 BEGIN
-  IF auth.jwt() ->> 'role' <> 'admin' THEN
-    RAISE EXCEPTION 'forbidden';
-  END IF;
-
   v_sql := trim(p_sql);
   IF v_sql = '' THEN
     RAISE EXCEPTION 'empty sql';

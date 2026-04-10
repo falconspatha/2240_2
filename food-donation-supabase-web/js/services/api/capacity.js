@@ -1,10 +1,21 @@
 import { supabase } from "../supabaseClient.js";
 import { parseNumber } from "../../ui/forms.js";
 
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+export async function logZoneUsage({ zoneId, usedKg }) {
+  const { data, error } = await supabase
+    .from("tblZoneCapacityLog")
+    .insert({ ZoneID: zoneId, LogDate: today(), UsedKg: usedKg })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function logComputedZoneUsage(zoneId) {
-  const { error } = await supabase.rpc("fn_log_computed_zone_usage", {
-    p_zone_id: Number(zoneId),
-  });
   const targetZoneId = parseNumber(zoneId);
   if (!targetZoneId) return null;
   const { data: rows, error: sumError } = await supabase.from("tblInventory").select("OnHandKg").eq("ZoneID", targetZoneId);
@@ -19,4 +30,5 @@ export async function listZoneUsage(zoneId, rangeDays = 30) {
   if (zoneId) query = query.eq("ZoneID", zoneId);
   const { data, error } = await query.order("LogDate");
   if (error) throw error;
+  return data || [];
 }

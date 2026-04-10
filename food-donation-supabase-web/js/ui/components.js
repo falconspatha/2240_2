@@ -82,11 +82,10 @@ export function debounce(fn, wait = 300) {
  */
 export function renderSortSelect(options, queryState) {
   const opts = options
-    .map(({ label, sort, sortDir, sort2, sortDir2 }) => {
+    .map(({ label, sort, sortDir }) => {
       const val = `${sort}:${sortDir}`;
       const selected = queryState.sort === sort && queryState.sortDir === sortDir ? "selected" : "";
-      const d2 = sort2 ? `data-sort2="${sort2}" data-sort-dir2="${sortDir2 ?? "asc"}"` : "";
-      return `<option value="${val}" ${selected} ${d2}>${label}</option>`;
+      return `<option value="${val}" ${selected}>${label}</option>`;
     })
     .join("");
   return `<select class="sort-select" aria-label="Sort by">${opts}</select>`;
@@ -94,7 +93,6 @@ export function renderSortSelect(options, queryState) {
 
 /**
  * Bind the sort <select> inside container to update queryState and call onChange.
- * Supports optional sort2/sortDir2 from the selected option.
  * @param {Element} container
  * @param {object} queryState - mutated in place
  * @param {function} onChange - called after state update
@@ -107,10 +105,6 @@ export function bindSortSelect(container, queryState, onChange) {
     queryState.sort = sort;
     queryState.sortDir = sortDir;
     queryState.page = 1;
-    // pick up sort2/sortDir2 from the selected option's data attributes
-    const opt = sel.options[sel.selectedIndex];
-    queryState.sort2 = opt?.dataset.sort2 || undefined;
-    queryState.sortDir2 = opt?.dataset.sortDir2 || undefined;
     onChange();
   });
 }

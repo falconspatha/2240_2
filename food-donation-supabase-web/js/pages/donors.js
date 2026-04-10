@@ -15,11 +15,6 @@ const SORT_OPTIONS = [
 
 let unsubSearch;
 
-function fkErrorMessage(err) {
-  if (err?.code === "23503") return "Cannot delete: this record is referenced by existing data (e.g. lots, orders, or inventory).";
-  return err?.message || "Delete failed.";
-}
-
 function donorForm(row = {}) {
   return `
     <form id="donorForm" class="form-grid">
@@ -125,13 +120,9 @@ export async function render(container) {
           title: "Delete donor?",
           message: "This action cannot be undone.",
           onConfirm: async () => {
-            try {
-              await deleteDonor(btn.dataset.del);
-              showToast("Donor deleted");
-              await load();
-            } catch (err) {
-              showToast(fkErrorMessage(err), "error");
-            }
+            await deleteDonor(btn.dataset.del);
+            showToast("Donor deleted");
+            await load();
           },
         }),
       ),
@@ -165,6 +156,7 @@ export async function render(container) {
       e.preventDefault();
       const payload = formDataToObject(e.currentTarget);
       if (!required(payload.DonorName)) return showToast("Name is required", "error");
+      payload.CreatedAt = new Date().toISOString();
       await createDonor(payload);
       modal.innerHTML = "";
       showToast("Donor created");

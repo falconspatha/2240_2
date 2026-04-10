@@ -47,6 +47,7 @@ export async function render(container) {
     const payload = formDataToObject(event.currentTarget);
     if (!required(payload.BeneficiaryName)) return showToast("Beneficiary name is required.", "error");
     payload.HasColdStorage = payload.HasColdStorage === "true";
+    payload.CreatedAt = new Date().toISOString();
 
     try {
       const row = await createBeneficiary(payload);

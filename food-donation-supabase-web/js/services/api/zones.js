@@ -1,39 +1,37 @@
 import { supabase } from "../supabaseClient.js";
+import { withMultiSearch, withSort } from "../queries.js";
+
+const SEARCH_COLUMNS = ["ZoneName", "TempBand"];
 
 export async function listZones({ search = "", sort = "ZoneName", sortDir = "asc" } = {}) {
-  const { data, error } = await supabase.rpc("fn_list_zones", {
-    p_search:   search,
-    p_sort:     sort,
-    p_sort_dir: sortDir,
-  });
+  let query = supabase
+    .from("tblStorageZone")
+    .select("ZoneID, ZoneName, TempBand, CapacityKg, Notes");
+  query = withMultiSearch(query, SEARCH_COLUMNS, search);
+  query = withSort(query, sort, sortDir);
+  const { data, error } = await query;
   if (error) throw error;
   return data || [];
 }
 
 export async function createZone(payload) {
-  const { data, error } = await supabase.rpc("fn_create_zone", {
-    p_name:        payload.ZoneName,
-    p_temp_band:   payload.TempBand,
-    p_capacity_kg: Number(payload.CapacityKg),
-    p_notes:       payload.Notes || null,
-  });
+  const { data, error } = await supabase.from("tblStorageZone").insert(payload).select().single();
   if (error) throw error;
-  return Array.isArray(data) ? data[0] : data;
+  return data;
 }
 
 export async function updateZone(id, patch) {
-  const { data, error } = await supabase.rpc("fn_update_zone", {
-    p_id:          id,
-    p_name:        patch.ZoneName,
-    p_temp_band:   patch.TempBand,
-    p_capacity_kg: Number(patch.CapacityKg),
-    p_notes:       patch.Notes || null,
-  });
+  const { data, error } = await supabase
+    .from("tblStorageZone")
+    .update(patch)
+    .eq("ZoneID", id)
+    .select()
+    .single();
   if (error) throw error;
-  return Array.isArray(data) ? data[0] : data;
+  return data;
 }
 
 export async function deleteZone(id) {
-  const { error } = await supabase.rpc("fn_delete_zone", { p_id: id });
+  const { error } = await supabase.from("tblStorageZone").delete().eq("ZoneID", id);
   if (error) throw error;
 }

@@ -1,46 +1,41 @@
 import { supabase } from "../supabaseClient.js";
+import { paginationRange, withMultiSearch, withFilters, withSort } from "../queries.js";
+
+const SEARCH_COLUMNS = ["ProductName", "Category", "TempRequirement"];
 
 export async function listProducts({ search = "", page = 1, size = 10, sort = "ProductID", sortDir = "desc", filters = {} } = {}) {
-  const { data, error } = await supabase.rpc("fn_list_products", {
-    p_search:   search,
-    p_category: filters.Category        || "",
-    p_temp:     filters.TempRequirement || "",
-    p_sort:     sort,
-    p_sort_dir: sortDir,
-    p_limit:    size,
-    p_offset:   (page - 1) * size,
-  });
+  const { from, to } = paginationRange(page, size);
+  let query = supabase
+    .from("tblProduct")
+    .select("ProductID, ProductName, Category, UnitWeightKg, TempRequirement", { count: "exact" })
+    .range(from, to);
+  query = withMultiSearch(query, SEARCH_COLUMNS, search);
+  query = withFilters(query, filters);
+  query = withSort(query, sort, sortDir);
+  const { data, error, count } = await query;
   if (error) throw error;
-  const rows = data || [];
-  const total = rows.length > 0 ? Number(rows[0].total_count) : 0;
-  return { rows, total };
+  return { rows: data || [], total: count ?? 0 };
 }
 
 export async function createProduct(payload) {
-  const { data, error } = await supabase.rpc("fn_create_product", {
-    p_name:             payload.ProductName,
-    p_category:         payload.Category,
-    p_unit_weight_kg:   Number(payload.UnitWeightKg),
-    p_temp_requirement: payload.TempRequirement,
-  });
+  const { data, error } = await supabase.from("tblProduct").insert(payload).select().single();
   if (error) throw error;
-  return Array.isArray(data) ? data[0] : data;
+  return data;
 }
 
 export async function updateProduct(id, patch) {
-  const { data, error } = await supabase.rpc("fn_update_product", {
-    p_id:               id,
-    p_name:             patch.ProductName,
-    p_category:         patch.Category,
-    p_unit_weight_kg:   Number(patch.UnitWeightKg),
-    p_temp_requirement: patch.TempRequirement,
-  });
+  const { data, error } = await supabase
+    .from("tblProduct")
+    .update(patch)
+    .eq("ProductID", id)
+    .select()
+    .single();
   if (error) throw error;
-  return Array.isArray(data) ? data[0] : data;
+  return data;
 }
 
 export async function deleteProduct(id) {
-  const { error } = await supabase.rpc("fn_delete_product", { p_id: id });
+  const { error } = await supabase.from("tblProduct").delete().eq("ProductID", id);
   if (error) throw error;
 }
 

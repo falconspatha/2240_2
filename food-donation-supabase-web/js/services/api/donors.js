@@ -1,56 +1,49 @@
 import { supabase } from "../supabaseClient.js";
+import { paginationRange, withMultiSearch, withFilters, withSort } from "../queries.js";
+
+const SEARCH_COLUMNS = ["DonorName", "DonorType", "District", "Phone"];
 
 export async function listDonors({ search = "", page = 1, size = 10, sort = "CreatedAt", sortDir = "desc", filters = {} } = {}) {
-  const { data, error } = await supabase.rpc("fn_list_donors", {
-    p_search:   search,
-    p_type:     filters.DonorType  || "",
-    p_district: filters.District   || "",
-    p_sort:     sort,
-    p_sort_dir: sortDir,
-    p_limit:    size,
-    p_offset:   (page - 1) * size,
-  });
+  const { from, to } = paginationRange(page, size);
+  let query = supabase
+    .from("tblDonor")
+    .select("DonorID, DonorName, DonorType, District, Phone, Email, CreatedAt", { count: "exact" })
+    .range(from, to);
+  query = withMultiSearch(query, SEARCH_COLUMNS, search);
+  query = withFilters(query, filters);
+  query = withSort(query, sort, sortDir);
+  const { data, error, count } = await query;
   if (error) throw error;
-  const rows = data || [];
-  const total = rows.length > 0 ? Number(rows[0].total_count) : 0;
-  return { rows, total };
+  return { rows: data || [], total: count ?? 0 };
 }
 
 export async function createDonor(payload) {
-  const { data, error } = await supabase.rpc("fn_create_donor", {
-    p_name:       payload.DonorName,
-    p_type:       payload.DonorType,
-    p_phone:      payload.Phone,
-    p_email:      payload.Email,
-    p_address:    payload.Address,
-    p_district:   payload.District,
-  });
+  const { data, error } = await supabase.from("tblDonor").insert(payload).select().single();
   if (error) throw error;
-  return Array.isArray(data) ? data[0] : data;
+  return data;
 }
 
 export async function updateDonor(id, patch) {
-  const { data, error } = await supabase.rpc("fn_update_donor", {
-    p_id:       id,
-    p_name:     patch.DonorName,
-    p_type:     patch.DonorType,
-    p_phone:    patch.Phone,
-    p_email:    patch.Email,
-    p_address:  patch.Address,
-    p_district: patch.District,
-  });
+  const { data, error } = await supabase.from("tblDonor").update(patch).eq("DonorID", id).select().single();
   if (error) throw error;
-  return Array.isArray(data) ? data[0] : data;
+  return data;
 }
 
 export async function deleteDonor(id) {
-  const { error } = await supabase.rpc("fn_delete_donor", { p_id: id });
+  const { error } = await supabase.from("tblDonor").delete().eq("DonorID", id);
   if (error) throw error;
 }
 
 export async function donorStats(id) {
-  const { data, error } = await supabase.rpc("fn_donor_stats", { p_id: id });
+  const { data, error } = await supabase
+    .from("tblDonationLot")
+    .select("QuantityUnits, UnitWeightKg")
+    .eq("DonorID", id);
   if (error) throw error;
-  const row = Array.isArray(data) ? data[0] : data;
-  return { totalUnits: Number(row?.total_units || 0), totalKg: Number(row?.total_kg || 0) };
+  const totalUnits = (data || []).reduce((s, r) => s + Number(r.QuantityUnits || 0), 0);
+  const totalKg = (data || []).reduce(
+    (s, r) => s + Number(r.QuantityUnits || 0) * Number(r.UnitWeightKg || 0),
+    0,
+  );
+  return { totalUnits, totalKg };
 }

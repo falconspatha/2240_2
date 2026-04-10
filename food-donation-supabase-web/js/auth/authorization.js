@@ -1,4 +1,8 @@
 const ALL_ROUTES = [
+  "admin-landing",
+  "inventory-landing",
+  "beneficiary-landing",
+  "donor-landing",
   "admin-workspace",
   "inventory-staff-ui",
   "dashboard",
@@ -20,8 +24,9 @@ const ALL_ROUTES = [
 
 export const ROLE_ACCESS = {
   "Administration staff": {
-    home: "admin-workspace",
+    home: "admin-landing",
     routes: [
+      "admin-landing",
       "admin-workspace",
       "dashboard",
       "donors",
@@ -37,28 +42,28 @@ export const ROLE_ACCESS = {
     quickActions: ["donor", "order", "lot"],
   },
   "Inventory staff": {
-    home: "inventory-staff-ui",
-    routes: ["inventory-staff-ui"],
+    home: "inventory-landing",
+    routes: ["inventory-landing", "inventory-staff-ui"],
     quickActions: [],
   },
   Beneficiaries: {
-    home: "beneficiary-register",
-    routes: ["beneficiary-register", "beneficiary-order", "beneficiary-order-submitted"],
+    home: "beneficiary-landing",
+    routes: ["beneficiary-landing", "beneficiary-register", "beneficiary-order", "beneficiary-order-submitted"],
     quickActions: [],
   },
   Beneficiary: {
-    home: "beneficiary-register",
-    routes: ["beneficiary-register", "beneficiary-order", "beneficiary-order-submitted"],
+    home: "beneficiary-landing",
+    routes: ["beneficiary-landing", "beneficiary-register", "beneficiary-order", "beneficiary-order-submitted"],
     quickActions: [],
   },
   Donors: {
-    home: "donor-register",
-    routes: ["donor-register", "donor-donation"],
+    home: "donor-landing",
+    routes: ["donor-landing", "donor-register", "donor-donation"],
     quickActions: [],
   },
   Donor: {
-    home: "donor-register",
-    routes: ["donor-register", "donor-donation"],
+    home: "donor-landing",
+    routes: ["donor-landing", "donor-register", "donor-donation"],
     quickActions: [],
   },
 };

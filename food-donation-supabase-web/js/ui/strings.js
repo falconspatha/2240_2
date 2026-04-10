@@ -1,6 +1,10 @@
 export const STRINGS = {
   appTitle: "Food Donation Management",
   routes: [
+    ["admin-landing", "Admin Landing"],
+    ["inventory-landing", "Inventory Landing"],
+    ["beneficiary-landing", "Beneficiary Landing"],
+    ["donor-landing", "Donor Landing"],
     ["admin-workspace", "Admin Workspace"],
     ["inventory-staff-ui", "Inventory Allocation UI"],
     ["dashboard", "Dashboard"],

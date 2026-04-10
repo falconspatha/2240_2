@@ -95,14 +95,14 @@ export async function render(container) {
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.45rem;margin-top:.75rem">
         ${exampleButtons}
       </div>
+      <div id="exampleResultWrap" style="margin-top:1rem;max-height:min(480px,60vh);overflow:auto;border:1px solid var(--border);border-radius:8px;padding:.75rem">
+        <p class="muted" id="exampleResultPlaceholder">Results appear here.</p>
+        <div id="exampleResultTable" style="display:none"></div>
+      </div>
       <label style="display:block;margin-top:1rem;font-weight:600">Query</label>
       <textarea id="exampleSql" rows="8" style="width:100%;margin-top:.35rem;font-family:ui-monospace,monospace;font-size:.85rem" placeholder="Choose an example above, or paste a single SELECT…"></textarea>
       <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:.65rem;flex-wrap:wrap">
         <button type="button" class="btn btn-ghost" id="clearExampleResult">Clear results</button>
-      </div>
-      <div id="exampleResultWrap" style="margin-top:1rem;max-height:min(480px,60vh);overflow:auto;border:1px solid var(--border);border-radius:8px;padding:.75rem">
-        <p class="muted" id="exampleResultPlaceholder">Results appear here.</p>
-        <div id="exampleResultTable" style="display:none"></div>
       </div>
     </section>
   `;

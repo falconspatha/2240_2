@@ -91,6 +91,10 @@ export async function updateOrder(id, patch) {
   return data;
 }
 
+export async function cancelOrder(id) {
+  return updateOrder(parseNumber(id), { Status: "Cancelled" });
+}
+
 export async function listOrderLines(orderId) {
   const { data, error } = await supabase
     .from("tblOrderLine")

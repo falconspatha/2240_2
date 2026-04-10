@@ -31,6 +31,16 @@ export async function allocate({ orderLineId, inventoryId, allocUnits }) {
   return allocateOrderLineFEFO(orderLineId);
 }
 
+export async function listPickAllocations(orderLineIds) {
+  if (!orderLineIds?.length) return [];
+  const { data, error } = await supabase
+    .from("tblPickAllocation")
+    .select("AllocationID, OrderLineID, AllocUnits, PickedAt")
+    .in("OrderLineID", orderLineIds);
+  if (error) throw error;
+  return data || [];
+}
+
 export async function markPicked(allocationId) {
   const pickedAt = new Date().toISOString().slice(0, 10);
   const { data: allocation, error: pickErr } = await supabase

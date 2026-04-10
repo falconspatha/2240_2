@@ -8,7 +8,7 @@ const SEARCH_COLUMNS = ["tblStorageZone.ZoneName"];
 export async function listInventory({ search = "", zoneId, lotId } = {}) {
   let query = supabase
     .from("tblInventory")
-    .select("InventoryID, LotID, ZoneID, OnHandUnits, OnHandKg, LastUpdated, tblStorageZone:ZoneID(ZoneName)")
+    .select("InventoryID, LotID, ZoneID, OnHandUnits, OnHandKg, LastUpdated, tblStorageZone:ZoneID(ZoneName, TempBand)")
     .order("LastUpdated", { ascending: false });
   if (zoneId) query = query.eq("ZoneID", zoneId);
   if (lotId) query = query.eq("LotID", lotId);

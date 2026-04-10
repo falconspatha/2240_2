@@ -73,7 +73,7 @@ export async function render(container) {
     container.querySelectorAll("[data-alloc]").forEach((btn) =>
       btn.addEventListener("click", () => {
         store.contextOrderId = btn.dataset.alloc;
-        location.hash = `#/orders-picking?tab=picking&orderId=${btn.dataset.alloc}`;
+        location.hash = `#/orders-picking?orderId=${btn.dataset.alloc}`;
       }),
     );
   }

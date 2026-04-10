@@ -11,7 +11,7 @@ export const STRINGS = {
     ["donors", "Donors"],
     ["products", "Products"],
     ["lots", "Lots"],
-    ["zones-inventory", "Zones & Inventory"],
+    ["storage", "Storage"],
     ["beneficiaries", "Beneficiaries"],
     ["orders-picking", "Orders & Picking"],
     ["reports", "Reports"],

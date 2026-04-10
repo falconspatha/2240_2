@@ -14,7 +14,7 @@ const routes = {
   donors: () => import("./pages/donors.js"),
   products: () => import("./pages/products.js"),
   lots: () => import("./pages/lots.js"),
-  "zones-inventory": () => import("./pages/zones-inventory.js"),
+  storage: () => import("./pages/storage.js"),
   beneficiaries: () => import("./pages/beneficiaries.js"),
   "orders-picking": () => import("./pages/orders-picking.js"),
   reports: () => import("./pages/reports.js"),
@@ -42,19 +42,27 @@ function tryRedirectLegacyMergedRoutes(session, pathPart) {
     return true;
   }
   if (pathPart === "picking" && allowed.includes("orders-picking")) {
-    params.set("tab", "picking");
-    location.hash = `#/orders-picking?${params}`;
-    return true;
-  }
-  if (pathPart === "zones" && allowed.includes("zones-inventory")) {
     params.delete("tab");
     const q = params.toString();
-    location.hash = `#/zones-inventory${q ? `?${q}` : ""}`;
+    location.hash = `#/orders-picking${q ? `?${q}` : ""}`;
     return true;
   }
-  if (pathPart === "inventory" && allowed.includes("zones-inventory")) {
-    params.set("tab", "inventory");
-    location.hash = `#/zones-inventory?${params}`;
+  if (pathPart === "zones" && allowed.includes("storage")) {
+    params.delete("tab");
+    const q = params.toString();
+    location.hash = `#/storage${q ? `?${q}` : ""}`;
+    return true;
+  }
+  if (pathPart === "inventory" && allowed.includes("storage")) {
+    params.delete("tab");
+    const q = params.toString();
+    location.hash = `#/storage${q ? `?${q}` : ""}`;
+    return true;
+  }
+  if (pathPart === "zones-inventory" && allowed.includes("storage")) {
+    params.delete("tab");
+    const q = params.toString();
+    location.hash = `#/storage${q ? `?${q}` : ""}`;
     return true;
   }
   return false;

@@ -99,7 +99,6 @@ export async function render(container) {
       <textarea id="exampleSql" rows="8" style="width:100%;margin-top:.35rem;font-family:ui-monospace,monospace;font-size:.85rem" placeholder="Choose an example above, or paste a single SELECT…"></textarea>
       <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:.65rem;flex-wrap:wrap">
         <button type="button" class="btn btn-ghost" id="clearExampleResult">Clear results</button>
-        <button type="button" class="btn btn-primary" id="runExampleQuery">Run example query</button>
       </div>
       <div id="exampleResultWrap" style="margin-top:1rem;max-height:min(480px,60vh);overflow:auto;border:1px solid var(--border);border-radius:8px;padding:.75rem">
         <p class="muted" id="exampleResultPlaceholder">Results appear here.</p>
@@ -129,24 +128,12 @@ export async function render(container) {
     }
   }
 
-  container.querySelectorAll("[data-example-id]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const item = EXAMPLE_QUERIES.find((q) => q.id === btn.dataset.exampleId);
-      if (!item) return;
-      exampleSql.value = item.sql;
-      exampleSql.focus();
-      showToast(`Loaded: ${item.label}`);
-    });
-  });
-
-  container.querySelector("#clearExampleResult").addEventListener("click", () => {
-    resultTable.innerHTML = "";
-    setExampleResult("Results appear here.", false);
-  });
-
-  container.querySelector("#runExampleQuery").addEventListener("click", async () => {
-    const sql = exampleSql.value.trim();
-    if (!sql) return showToast("Enter or load a query first.", "error");
+  async function executeExampleQuery(sqlText) {
+    const sql = sqlText.trim();
+    if (!sql) {
+      showToast("Enter or load a query first.", "error");
+      return;
+    }
     try {
       const { data, error } = await runSelectRpc(sql);
       if (error) throw error;
@@ -160,6 +147,22 @@ export async function render(container) {
       showToast(error.message || String(error), "error");
       setExampleResult(`<p class="muted">${escapeHtml(error.message || String(error))}</p>`, false);
     }
+  }
+
+  container.querySelectorAll("[data-example-id]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const item = EXAMPLE_QUERIES.find((q) => q.id === btn.dataset.exampleId);
+      if (!item) return;
+      exampleSql.value = item.sql;
+      exampleSql.focus();
+      showToast(`Loaded: ${item.label}`);
+      await executeExampleQuery(item.sql);
+    });
+  });
+
+  container.querySelector("#clearExampleResult").addEventListener("click", () => {
+    resultTable.innerHTML = "";
+    setExampleResult("Results appear here.", false);
   });
 
   container.querySelector("#ddlForm").addEventListener("submit", async (event) => {

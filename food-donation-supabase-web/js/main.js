@@ -5,12 +5,14 @@ import { store } from "./store.js";
 import { getSession, logout } from "./auth/session.js";
 import { canUseQuickAction, getRoleRoutes } from "./auth/authorization.js";
 
+const HIDDEN_NAV_ROUTES = new Set(["beneficiary-order-submitted"]);
+
 function renderNav() {
   const nav = document.getElementById("routeNav");
   const session = getSession();
   const allowed = session ? new Set(getRoleRoutes(session.role)) : new Set();
   nav.innerHTML = STRINGS.routes
-    .filter(([key]) => allowed.has(key))
+    .filter(([key]) => allowed.has(key) && !HIDDEN_NAV_ROUTES.has(key))
     .map(([key, label]) => `<a class="btn btn-ghost" href="#/${key}" data-nav="${key}">${label}</a>`)
     .join("");
 }

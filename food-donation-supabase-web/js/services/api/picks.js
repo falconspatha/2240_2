@@ -24,6 +24,12 @@ export async function fefoCandidates(productId) {
 }
 
 export async function allocate({ orderLineId }) {
+export async function allocate({ orderLineId, inventoryId, allocUnits }) {
+  if (!parseNumber(orderLineId)) {
+    throw new Error("Invalid OrderLineID for allocation.");
+  }
+  void inventoryId;
+  void allocUnits;
   return allocateOrderLineFEFO(orderLineId);
 }
 

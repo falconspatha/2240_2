@@ -119,13 +119,7 @@ export async function render(container) {
         Notes: payload.Notes || null,
       });
       await Promise.all(lines.map((line) => addOrderLine(created.OrderID, line)));
-      showToast(`Order #${created.OrderID} created with ${lines.length} line(s).`);
-      form.reset();
-      linesWrap.innerHTML = lineRowTemplate(products);
-      container.querySelector("[name='BeneficiaryID']").value = beneficiaryId;
-      container.querySelector("[name='OrderDate']").value = today();
-      container.querySelector("[name='Status']").value = "Pending";
-      container.querySelector("[name='Priority']").value = "1";
+      location.hash = `#/beneficiary-order-submitted?orderId=${created.OrderID}`;
     } catch (error) {
       showToast(error.message, "error");
     }

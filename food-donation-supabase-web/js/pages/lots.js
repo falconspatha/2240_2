@@ -174,7 +174,7 @@ export async function render(container) {
         <label>Donor<select name="DonorID" required><option value="" disabled selected hidden>-- Select --</option>${donors.map((d) => `<option value="${d.DonorID}">${d.DonorName}</option>`).join("")}</select></label>
         <label>Product<select name="ProductID" required><option value="" disabled selected hidden>-- Select --</option>${products.map((p) => `<option value="${p.ProductID}">${p.ProductName}</option>`).join("")}</select></label>
         <label>Quantity Units<input name="QuantityUnits" type="number" min="0" step="1" required></label>
-        <label>Unit Weight kg<input name="UnitWeightKg" id="unitWeightDisplay" readonly style="background:var(--bg);color:var(--text-muted);cursor:default" placeholder="Auto-filled from product"></label>
+        <label>Unit Weight kg (from product)<input id="unitWeightDisplay" readonly tabindex="-1" style="background:var(--bg);color:var(--text-muted);cursor:default" placeholder="Select a product"></label>
         <input type="hidden" name="ReceivedDate" value="${today()}">
         <label>Received Date<input value="${today()}" readonly style="background:var(--bg);color:var(--text-muted);cursor:default"></label>
         <label>Expiry Date<input name="ExpiryDate" type="date" required></label>
@@ -207,7 +207,8 @@ export async function render(container) {
       if (product?.TempRequirement && [...tempSelect.options].some((opt) => opt.value === product.TempRequirement)) {
         tempSelect.value = product.TempRequirement;
       }
-      m.querySelector("#unitWeightDisplay").value = product?.UnitWeightKg ?? "";
+      const uw = m.querySelector("#unitWeightDisplay");
+      if (uw) uw.value = product?.UnitWeightKg != null ? String(product.UnitWeightKg) : "";
     });
   });
 

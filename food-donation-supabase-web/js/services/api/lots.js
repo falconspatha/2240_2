@@ -1,4 +1,8 @@
 import { supabase } from "../supabaseClient.js";
+import { parseNumber } from "../../ui/forms.js";
+import { withMultiSearch, withFilters, withSort, withDateRange } from "../queries.js";
+import { logComputedZoneUsage } from "./capacity.js";
+import { getProductById } from "./products.js";
 
 export async function listLots({ search = "", filters = {}, sort = "ReceivedDate", sortDir = "desc", sort2, sortDir2, fromDate = "", toDate = "" } = {}) {
   const { data, error } = await supabase.rpc("fn_list_lots", {
@@ -61,6 +65,49 @@ export async function receiveLot(payload) {
     p_status:            payload.Status || "Received",
     p_notes:             payload.Notes  || null,
   });
+  return `${prefix}${String(nextNumber).padStart(5, "0")}`;
+}
+
+export async function receiveLot(payload) {
+  const receivedOn = today();
+  const donorId = parseNumber(payload?.DonorID);
+  const productId = parseNumber(payload?.ProductID);
+  const qtyUnits = parseNumber(payload?.QuantityUnits);
+  if (!donorId || !productId || !qtyUnits) {
+    throw new Error("Donor, product, and quantity are required.");
+  }
+  const productRow = await getProductById(productId);
+  if (!productRow) throw new Error("Product not found.");
+  const unitWeightKg = parseNumber(productRow.UnitWeightKg);
+  if (!(unitWeightKg > 0)) {
+    throw new Error("This product has no valid unit weight in the catalog. Ask an admin to set Unit Weight (kg) on the product.");
+  }
+  const totalWeightKg = Number((qtyUnits * unitWeightKg).toFixed(2));
+  const tempRequirement = payload?.TempRequirement;
+  const autoZoneId = payload?.StoredZoneID ? parseNumber(payload.StoredZoneID) : await pickAvailableZoneId(tempRequirement, totalWeightKg);
+  const receivedDate = receivedOn;
+  const lotCode = payload?.LotCode || (await generateLotCode(receivedDate));
+  const notes = payload?.Notes || null;
+  const status = payload?.Status || "Received";
+  const suggestedZoneId = payload?.SuggestedZoneID ? String(payload.SuggestedZoneID) : String(autoZoneId);
+
+  // Only send columns that actually exist in tblDonationLot.
+  const insertPayload = {
+    DonorID: donorId,
+    ProductID: productId,
+    LotCode: lotCode,
+    QuantityUnits: qtyUnits,
+    UnitWeightKg: unitWeightKg,
+    TotalWeightKg: totalWeightKg,
+    ExpiryDate: payload?.ExpiryDate,
+    ReceivedDate: receivedDate,
+    TempRequirement: tempRequirement,
+    SuggestedZoneID: suggestedZoneId,
+    StoredZoneID: autoZoneId,
+    Status: status,
+    Notes: notes,
+  };
+  const { data, error } = await supabase.from("tblDonationLot").insert(insertPayload).select().single();
   if (error) throw error;
   return Array.isArray(data) ? data[0] : data;
 }

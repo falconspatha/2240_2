@@ -4,7 +4,12 @@ import { canAccessRoute, getRoleHome } from "./auth/authorization.js";
 
 const routes = {
   login: () => import("./pages/login.js"),
+  "admin-landing": () => import("./pages/admin-landing.js"),
+  "inventory-landing": () => import("./pages/inventory-landing.js"),
+  "beneficiary-landing": () => import("./pages/beneficiary-landing.js"),
+  "donor-landing": () => import("./pages/donor-landing.js"),
   "admin-workspace": () => import("./pages/admin-workspace.js"),
+  "inventory-staff-ui": () => import("./pages/inventory-staff-ui.js"),
   dashboard: () => import("./pages/dashboard.js"),
   donors: () => import("./pages/donors.js"),
   products: () => import("./pages/products.js"),
@@ -19,6 +24,8 @@ const routes = {
   reports: () => import("./pages/reports.js"),
   "beneficiary-register": () => import("./pages/beneficiary-register.js"),
   "beneficiary-order": () => import("./pages/beneficiary-order.js"),
+  "beneficiary-delivery-status": () => import("./pages/beneficiary-delivery-status.js"),
+  "beneficiary-order-submitted": () => import("./pages/beneficiary-order-submitted.js"),
   "donor-register": () => import("./pages/donor-register.js"),
   "donor-donation": () => import("./pages/donor-donation.js"),
 };
@@ -28,8 +35,8 @@ const PUBLIC_ROUTES = new Set(["login"]);
 
 export async function navigate() {
   const app = document.getElementById("app");
-  const requestedKey = (location.hash.replace("#/", "") || "dashboard").split("?")[0];
   const session = getSession();
+  const requestedKey = (location.hash.replace("#/", "") || (session ? getRoleHome(session.role) : "dashboard")).split("?")[0];
   const pageKey = !session && !PUBLIC_ROUTES.has(requestedKey) ? "login" : requestedKey;
   let safeKey = routes[pageKey] ? pageKey : session ? getRoleHome(session.role) : "login";
   if (session && safeKey !== "login" && !canAccessRoute(session.role, safeKey)) {

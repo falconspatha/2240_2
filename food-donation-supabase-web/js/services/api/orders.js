@@ -20,6 +20,45 @@ export async function listOpenOrders() {
   return data || [];
 }
 
+export async function listBeneficiaryDeliveryStatus(beneficiaryId) {
+  const id = parseNumber(beneficiaryId);
+  if (!id) return [];
+
+  const { data: orders, error: orderError } = await supabase
+    .from("tblOrders")
+    .select("OrderID, BeneficiaryID, OrderDate, RequiredDeliveryDate, Status, Priority, Notes")
+    .eq("BeneficiaryID", id)
+    .order("OrderDate", { ascending: false });
+  if (orderError) throw orderError;
+  if (!orders?.length) return [];
+
+  const orderIds = orders.map((order) => order.OrderID);
+  const { data: lines, error: lineError } = await supabase
+    .from("tblOrderLine")
+    .select("OrderLineID, OrderID, ProductID, QtyUnits, Notes, tblProduct:ProductID(ProductName)")
+    .in("OrderID", orderIds)
+    .order("OrderLineID", { ascending: true });
+  if (lineError) throw lineError;
+
+  const linesByOrder = new Map();
+  (lines || []).forEach((line) => {
+    const key = String(line.OrderID);
+    const arr = linesByOrder.get(key) || [];
+    arr.push(line);
+    linesByOrder.set(key, arr);
+  });
+
+  return orders.map((order) => {
+    const orderLines = linesByOrder.get(String(order.OrderID)) || [];
+    return {
+      ...order,
+      lineCount: orderLines.length,
+      totalQtyUnits: orderLines.reduce((sum, line) => sum + (parseNumber(line.QtyUnits) || 0), 0),
+      lines: orderLines,
+    };
+  });
+}
+
 export async function createOrder(header) {
   const { data, error } = await supabase.rpc("fn_create_order", {
     p_beneficiary_id:         Number(header.BeneficiaryID),
@@ -67,6 +106,54 @@ export async function addOrderLine(orderId, line) {
 export async function allocateOrderLineFEFO(orderLineId) {
   const { data, error } = await supabase.rpc("fn_allocate_fefo", {
     p_order_line_id: Number(orderLineId),
+  const targetOrderLineId = parseNumber(orderLineId);
+  if (!targetOrderLineId) {
+    throw new Error("Invalid OrderLineID for FEFO allocation.");
+  }
+
+  const { data: orderLine, error: lineError } = await supabase
+    .from("tblOrderLine")
+    .select("OrderLineID, ProductID, QtyUnits")
+    .eq("OrderLineID", targetOrderLineId)
+    .single();
+  if (lineError) throw lineError;
+
+  const { data: existingAllocs, error: allocError } = await supabase
+    .from("tblPickAllocation")
+    .select("AllocationID")
+    .eq("OrderLineID", targetOrderLineId)
+    .limit(1);
+  if (allocError) throw allocError;
+  if (existingAllocs?.length) return { skipped: true, reason: "already_allocated" };
+
+  const productId = parseNumber(orderLine?.ProductID);
+  let remainingUnits = parseNumber(orderLine?.QtyUnits);
+  if (!productId || !remainingUnits) return;
+
+  const { data: lots, error: lotsError } = await supabase
+    .from("tblDonationLot")
+    .select("LotID, ProductID, ExpiryDate, UnitWeightKg")
+    .eq("ProductID", productId)
+    .order("ExpiryDate", { ascending: true })
+    .order("LotID", { ascending: true });
+  if (lotsError) throw lotsError;
+  if (!lots?.length) return;
+
+  const lotIds = lots.map((lot) => lot.LotID);
+
+  const { data: inventoryRows, error: inventoryError } = await supabase
+    .from("tblInventory")
+    .select("InventoryID, LotID, ZoneID, OnHandUnits, OnHandKg")
+    .in("LotID", lotIds);
+  if (inventoryError) throw inventoryError;
+  if (!inventoryRows?.length) return;
+
+  const inventoryByLot = new Map();
+  (inventoryRows || []).forEach((inv) => {
+    const key = String(inv.LotID);
+    const arr = inventoryByLot.get(key) || [];
+    arr.push(inv);
+    inventoryByLot.set(key, arr);
   });
   if (error) throw error;
   return data;

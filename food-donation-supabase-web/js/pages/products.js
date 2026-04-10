@@ -111,7 +111,10 @@ export async function render(container) {
               await load();
             } catch (e) {
               if (e.code === "23503") {
-                showToast("Cannot delete: this product is referenced by existing order lines.", "error");
+                showToast(
+                  "Cannot delete: this product is still referenced by donation lots or order lines. Remove related lots/order lines first.",
+                  "error",
+                );
               } else {
                 showToast(e.message, "error");
               }

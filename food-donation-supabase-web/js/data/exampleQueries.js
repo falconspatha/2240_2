@@ -9,8 +9,8 @@ export const EXAMPLE_QUERIES = [
     sql: `SELECT
   p."ProductID",
   p."ProductName" AS product_name,
-  SUM(NULLIF(TRIM(i."OnHandUnits"), '')::numeric) AS total_units,
-  ROUND(SUM(NULLIF(TRIM(i."OnHandKg"), '')::numeric)::numeric, 2) AS total_kg
+  SUM(NULLIF(TRIM(COALESCE(i."OnHandUnits"::text, '')), '')::numeric) AS total_units,
+  ROUND(SUM(NULLIF(TRIM(COALESCE(i."OnHandKg"::text, '')), '')::numeric)::numeric, 2) AS total_kg
 FROM "tblInventory" i
 JOIN "tblDonationLot" l ON l."LotID" = i."LotID"
 JOIN "tblProduct" p ON p."ProductID" = l."ProductID"
@@ -24,7 +24,7 @@ ORDER BY total_kg DESC NULLS LAST`,
   z."ZoneID",
   z."ZoneName",
   z."TempBand",
-  ROUND(SUM(NULLIF(TRIM(i."OnHandKg"), '')::numeric)::numeric, 2) AS zone_on_hand_kg
+  ROUND(SUM(NULLIF(TRIM(COALESCE(i."OnHandKg"::text, '')), '')::numeric)::numeric, 2) AS zone_on_hand_kg
 FROM "tblStorageZone" z
 LEFT JOIN "tblInventory" i ON i."ZoneID" = z."ZoneID"
 GROUP BY z."ZoneID", z."ZoneName", z."TempBand"
@@ -68,14 +68,14 @@ ORDER BY l."ExpiryDate" ASC`,
   l."LotID",
   l."ExpiryDate",
   i."InventoryID",
-  NULLIF(TRIM(i."OnHandUnits"), '')::numeric AS on_hand_units,
-  NULLIF(TRIM(i."OnHandKg"), '')::numeric AS on_hand_kg,
+  NULLIF(TRIM(COALESCE(i."OnHandUnits"::text, '')), '')::numeric AS on_hand_units,
+  NULLIF(TRIM(COALESCE(i."OnHandKg"::text, '')), '')::numeric AS on_hand_kg,
   z."ZoneName"
 FROM "tblInventory" i
 JOIN "tblDonationLot" l ON l."LotID" = i."LotID"
 JOIN "tblProduct" p ON p."ProductID" = l."ProductID"
 JOIN "tblStorageZone" z ON z."ZoneID" = i."ZoneID"
-WHERE COALESCE(NULLIF(TRIM(i."OnHandUnits"), '')::numeric, 0) > 0
+WHERE COALESCE(NULLIF(TRIM(COALESCE(i."OnHandUnits"::text, '')), '')::numeric, 0) > 0
 ORDER BY p."ProductID", l."ExpiryDate" ASC, i."InventoryID"`,
   },
   {
@@ -85,10 +85,10 @@ ORDER BY p."ProductID", l."ExpiryDate" ASC, i."InventoryID"`,
   z."ZoneID",
   z."ZoneName",
   z."CapacityKg",
-  ROUND(COALESCE(SUM(NULLIF(TRIM(i."OnHandKg"), '')::numeric), 0)::numeric, 2) AS used_kg,
+  ROUND(COALESCE(SUM(NULLIF(TRIM(COALESCE(i."OnHandKg"::text, '')), '')::numeric), 0)::numeric, 2) AS used_kg,
   ROUND(
     CASE
-      WHEN z."CapacityKg" > 0 THEN (COALESCE(SUM(NULLIF(TRIM(i."OnHandKg"), '')::numeric), 0) / z."CapacityKg" * 100)::numeric
+      WHEN z."CapacityKg" > 0 THEN (COALESCE(SUM(NULLIF(TRIM(COALESCE(i."OnHandKg"::text, '')), '')::numeric), 0) / z."CapacityKg" * 100)::numeric
       ELSE 0
     END, 2
   ) AS utilization_pct
@@ -106,7 +106,7 @@ FROM (
     z."ZoneID",
     z."ZoneName",
     z."CapacityKg",
-    COALESCE(SUM(NULLIF(TRIM(i."OnHandKg"), '')::numeric), 0) AS used_kg
+    COALESCE(SUM(NULLIF(TRIM(COALESCE(i."OnHandKg"::text, '')), '')::numeric), 0) AS used_kg
   FROM "tblStorageZone" z
   LEFT JOIN "tblInventory" i ON i."ZoneID" = z."ZoneID"
   GROUP BY z."ZoneID", z."ZoneName", z."CapacityKg"

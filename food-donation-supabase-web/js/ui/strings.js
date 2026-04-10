@@ -15,6 +15,7 @@ export const STRINGS = {
     ["reports", "Reports"],
     ["beneficiary-register", "Beneficiary Register"],
     ["beneficiary-order", "Beneficiary Order"],
+    ["beneficiary-order-submitted", "Order Submitted"],
     ["donor-register", "Donor Register"],
     ["donor-donation", "Make Donation"],
   ],

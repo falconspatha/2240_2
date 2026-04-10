@@ -18,6 +18,7 @@ const routes = {
   reports: () => import("./pages/reports.js"),
   "beneficiary-register": () => import("./pages/beneficiary-register.js"),
   "beneficiary-order": () => import("./pages/beneficiary-order.js"),
+  "beneficiary-order-submitted": () => import("./pages/beneficiary-order-submitted.js"),
   "donor-register": () => import("./pages/donor-register.js"),
   "donor-donation": () => import("./pages/donor-donation.js"),
 };

@@ -2,23 +2,29 @@ import { listLots, putToZone, receiveLot } from "../services/api/lots.js";
 import { listDonors } from "../services/api/donors.js";
 import { listProducts } from "../services/api/products.js";
 import { listZones } from "../services/api/zones.js";
-import { bindSortSelect, renderSortSelect, showToast, skeletonRows } from "../ui/components.js";
+import { bindPagination, bindSortSelect, renderPagination, renderSortSelect, showToast, skeletonRows } from "../ui/components.js";
 import { formDataToObject, parseNumber, required, validateLotDates } from "../ui/forms.js";
 import { store } from "../store.js";
+const PAGE_SIZE = 10;
 const today = () => new Date().toISOString().slice(0, 10);
+// 香港時間 UTC+8 的今日日期
+const todayHKT = () => new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
 const TEMP_OPTIONS = ["Ambient", "Chilled", "Frozen"];
 
 const SORT_OPTIONS = [
-  { label: "Received (newest)", sort: "ReceivedDate",  sortDir: "desc" },
-  { label: "Received (oldest)", sort: "ReceivedDate",  sortDir: "asc"  },
-  { label: "Expiry (soonest)",  sort: "ExpiryDate",    sortDir: "asc"  },
-  { label: "Expiry (latest)",   sort: "ExpiryDate",    sortDir: "desc" },
-  { label: "LotID (asc)",       sort: "DonationLotID", sortDir: "asc"  },
-  { label: "LotID (desc)",      sort: "DonationLotID", sortDir: "desc" },
-  { label: "Qty (asc)",         sort: "QuantityUnits", sortDir: "asc"  },
-  { label: "Qty (desc)",        sort: "QuantityUnits", sortDir: "desc" },
-  { label: "Unit kg (light)",   sort: "UnitWeightKg",  sortDir: "asc"  },
-  { label: "Unit kg (heavy)",   sort: "UnitWeightKg",  sortDir: "desc" },
+  { label: "Received (newest)",       sort: "ReceivedDate",  sortDir: "desc" },
+  { label: "Received (oldest)",       sort: "ReceivedDate",  sortDir: "asc"  },
+  { label: "Expiry (soonest)",        sort: "ExpiryDate",    sortDir: "asc"  },
+  { label: "Expiry (latest)",         sort: "ExpiryDate",    sortDir: "desc" },
+  { label: "LotID (asc)",             sort: "LotID",         sortDir: "asc"  },
+  { label: "LotID (desc)",            sort: "LotID",         sortDir: "desc" },
+  { label: "Qty (asc)",               sort: "QuantityUnits", sortDir: "asc"  },
+  { label: "Qty (desc)",              sort: "QuantityUnits", sortDir: "desc" },
+  { label: "Unit kg (light)",         sort: "UnitWeightKg",  sortDir: "asc"  },
+  { label: "Unit kg (heavy)",         sort: "UnitWeightKg",  sortDir: "desc" },
+  { label: "Product → Expiry (FEFO)", sort: "ProductID",     sortDir: "asc",  sort2: "ExpiryDate",   sortDir2: "asc"  },
+  { label: "Donor → Expiry",          sort: "DonorID",       sortDir: "asc",  sort2: "ExpiryDate",   sortDir2: "asc"  },
+  { label: "Status → Received",       sort: "Status",        sortDir: "asc",  sort2: "ReceivedDate", sortDir2: "desc" },
 ];
 
 let unsubSearch;
@@ -30,7 +36,18 @@ function modal(content) {
 }
 
 export async function render(container) {
-  const queryState = { search: store.globalSearch, filters: {}, sort: "ReceivedDate", sortDir: "desc", fromDate: "", toDate: "" };
+  const queryState = { search: store.globalSearch, filters: {}, sort: "ReceivedDate", sortDir: "desc", fromDate: "", toDate: "", expiryFilter: "", page: 1 };
+
+  // apply context filter set by admin-workspace alert button
+  if (store.contextLotsFilter) {
+    const { expiryFilter, sort, sortDir } = store.contextLotsFilter;
+    if (expiryFilter) queryState.expiryFilter = expiryFilter;
+    if (sort)         queryState.sort = sort;
+    if (sortDir)      queryState.sortDir = sortDir;
+    store.contextLotsFilter = null;
+  }
+
+  const allProducts = (await listProducts({ page: 1, size: 200 })).rows;
 
   container.innerHTML = `
     <section class="card">
@@ -43,6 +60,15 @@ export async function render(container) {
           <label style="display:flex;align-items:center;gap:.25rem;font-size:.85rem">
             To <input type="date" id="toDate" style="font-size:.85rem">
           </label>
+          <select id="productFilter" aria-label="Filter by product">
+            <option value="">All Products</option>
+            ${allProducts.map((p) => `<option value="${p.ProductID}">${p.ProductName}</option>`).join("")}
+          </select>
+          <select id="expiryFilter" aria-label="Filter by expiry status">
+            <option value="">All Expiry</option>
+            <option value="active" ${queryState.expiryFilter === "active" ? "selected" : ""}>Not Expired</option>
+            <option value="expired" ${queryState.expiryFilter === "expired" ? "selected" : ""}>Expired</option>
+          </select>
           ${renderSortSelect(SORT_OPTIONS, queryState)}
           <button class="btn btn-primary" id="newLot">Receive Lot</button>
         </div>
@@ -53,21 +79,33 @@ export async function render(container) {
           <tbody id="rows">${skeletonRows(9)}</tbody>
         </table>
       </div>
+      <div id="pager"></div>
     </section>
   `;
 
   async function load() {
-    const rows = await listLots({
+    let rows = await listLots({
       search: queryState.search,
       filters: queryState.filters,
       sort: queryState.sort,
       sortDir: queryState.sortDir,
+      sort2: queryState.sort2,
+      sortDir2: queryState.sortDir2,
       fromDate: queryState.fromDate,
       toDate: queryState.toDate,
     });
+    if (queryState.expiryFilter) {
+      const hkt = todayHKT();
+      rows = rows.filter((r) =>
+        queryState.expiryFilter === "expired" ? r.ExpiryDate < hkt : r.ExpiryDate >= hkt
+      );
+    }
+    const total = rows.length;
+    const from = (queryState.page - 1) * PAGE_SIZE;
+    const paged = rows.slice(from, from + PAGE_SIZE);
     container.querySelector("#rows").innerHTML =
-      rows.map((r) => {
-        const soon = r.ExpiryDate && (new Date(r.ExpiryDate) - Date.now()) / 86400000 <= 7;
+      paged.map((r) => {
+        const soon = r.ExpiryDate && (new Date(r.ExpiryDate).getTime() - new Date(todayHKT()).getTime()) / 86400000 <= 7;
         return `<tr>
           <td>${r.LotID}</td><td>${r.tblDonor?.DonorName || r.DonorID}</td><td>${r.tblProduct?.ProductName || r.ProductID}</td>
           <td>${r.QuantityUnits}</td><td>${r.UnitWeightKg}</td><td>${r.ExpiryDate || ""}</td><td>${r.ReceivedDate || ""}</td>
@@ -75,6 +113,10 @@ export async function render(container) {
           <td><button class="btn btn-ghost" data-zone="${r.LotID}">Put to Zone</button></td>
         </tr>`;
       }).join("") || `<tr><td colspan="9" class="muted">No lots found.</td></tr>`;
+
+    const pager = container.querySelector("#pager");
+    pager.innerHTML = renderPagination({ page: queryState.page, size: PAGE_SIZE, total });
+    bindPagination(pager, (p) => { queryState.page = p; load().catch((e) => showToast(e.message, "error")); });
 
     container.querySelectorAll("[data-zone]").forEach((btn) =>
       btn.addEventListener("click", async () => {
@@ -102,11 +144,21 @@ export async function render(container) {
   }
 
   container.querySelector("#fromDate").addEventListener("change", (e) => {
-    queryState.fromDate = e.target.value;
+    queryState.fromDate = e.target.value; queryState.page = 1;
     load().catch((err) => showToast(err.message, "error"));
   });
   container.querySelector("#toDate").addEventListener("change", (e) => {
-    queryState.toDate = e.target.value;
+    queryState.toDate = e.target.value; queryState.page = 1;
+    load().catch((err) => showToast(err.message, "error"));
+  });
+  container.querySelector("#productFilter").addEventListener("change", (e) => {
+    if (e.target.value) queryState.filters = { ...queryState.filters, ProductID: e.target.value };
+    else { const { ProductID: _, ...rest } = queryState.filters; queryState.filters = rest; }
+    queryState.page = 1;
+    load().catch((err) => showToast(err.message, "error"));
+  });
+  container.querySelector("#expiryFilter").addEventListener("change", (e) => {
+    queryState.expiryFilter = e.target.value; queryState.page = 1;
     load().catch((err) => showToast(err.message, "error"));
   });
 
@@ -162,6 +214,7 @@ export async function render(container) {
 
   function onSearch(e) {
     queryState.search = e.detail ?? store.globalSearch;
+    queryState.page = 1;
     load().catch((err) => showToast(err.message, "error"));
   }
   window.addEventListener("global-search", onSearch);

@@ -44,7 +44,6 @@ export async function render(container) {
     event.preventDefault();
     const payload = formDataToObject(event.currentTarget);
     if (!required(payload.DonorName)) return showToast("Donor name is required.", "error");
-    payload.CreatedAt = new Date().toISOString();
 
     try {
       const row = await createDonor(payload);

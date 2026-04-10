@@ -17,6 +17,7 @@ const ALL_ROUTES = [
   "reports",
   "beneficiary-register",
   "beneficiary-order",
+  "beneficiary-delivery-status",
   "beneficiary-order-submitted",
   "donor-register",
   "donor-donation",
@@ -48,12 +49,12 @@ export const ROLE_ACCESS = {
   },
   Beneficiaries: {
     home: "beneficiary-landing",
-    routes: ["beneficiary-landing", "beneficiary-register", "beneficiary-order", "beneficiary-order-submitted"],
+    routes: ["beneficiary-landing", "beneficiary-register", "beneficiary-order", "beneficiary-delivery-status", "beneficiary-order-submitted"],
     quickActions: [],
   },
   Beneficiary: {
     home: "beneficiary-landing",
-    routes: ["beneficiary-landing", "beneficiary-register", "beneficiary-order", "beneficiary-order-submitted"],
+    routes: ["beneficiary-landing", "beneficiary-register", "beneficiary-order", "beneficiary-delivery-status", "beneficiary-order-submitted"],
     quickActions: [],
   },
   Donors: {

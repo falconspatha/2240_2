@@ -48,18 +48,17 @@ export async function receiveLot(payload) {
 
   // 3. Insert lot + inventory
   const { data, error } = await supabase.rpc("fn_receive_lot", {
-    p_donor_id:          Number(payload.DonorID),
-    p_product_id:        Number(payload.ProductID),
-    p_lot_code:          lotCode,
-    p_qty_units:         Number(payload.QuantityUnits),
-    p_unit_weight_kg:    Number(payload.UnitWeightKg),
-    p_expiry_date:       payload.ExpiryDate,
-    p_received_date:     receivedDate,
-    p_temp_requirement:  payload.TempRequirement,
-    p_suggested_zone_id: String(zoneId),
-    p_stored_zone_id:    zoneId,
-    p_status:            payload.Status || "Received",
-    p_notes:             payload.Notes  || null,
+    p_donor_id:         Number(payload.DonorID),
+    p_product_id:       Number(payload.ProductID),
+    p_lot_code:         lotCode,
+    p_qty_units:        Number(payload.QuantityUnits),
+    p_unit_weight_kg:   Number(payload.UnitWeightKg),
+    p_expiry_date:      payload.ExpiryDate,
+    p_received_date:    receivedDate,
+    p_temp_requirement: payload.TempRequirement,
+    p_stored_zone_id:   zoneId,
+    p_status:           payload.Status || "Received",
+    p_notes:            payload.Notes  || null,
   });
   if (error) throw error;
   return Array.isArray(data) ? data[0] : data;

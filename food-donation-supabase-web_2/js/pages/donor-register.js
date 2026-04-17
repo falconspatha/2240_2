@@ -16,7 +16,7 @@ export async function render(container) {
       </div>
       <p class="muted">Create your donor profile before submitting donation lots.</p>
       ${donorId ? `<p class="badge ok" style="margin-top:.8rem">Linked Donor ID: ${donorId}</p>` : ""}
-      <form id="donorSelfForm" class="form-grid" style="margin-top:1rem">
+      <form id="donorSelfForm" class="form-grid" style="margin-top:1rem;grid-template-columns:1fr 1fr">
         <label>Donor Name<input name="DonorName" required></label>
         <label>Donor Type
           <select name="DonorType" required>
